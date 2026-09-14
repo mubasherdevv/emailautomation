@@ -5,24 +5,45 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
   try {
-    // If Supabase is connected with real database, query Supabase
+    let supabaseCampaigns: any[] = [];
     if (
       process.env.NEXT_PUBLIC_SUPABASE_URL &&
       !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock") &&
       !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
     ) {
-      const supabase = createAdminClient();
-      const { data, error } = await supabase
-        .from("campaigns")
-        .select("*")
-        .order("created_at", { ascending: false });
+      try {
+        const supabase = createAdminClient();
+        const { data, error } = await supabase
+          .from("campaigns")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      if (!error && Array.isArray(data)) {
-        return NextResponse.json({ campaigns: data });
+        if (!error && Array.isArray(data)) {
+          supabaseCampaigns = data;
+        }
+      } catch (e) {
+        console.error("Supabase campaigns fetch error:", e);
       }
     }
 
-    return NextResponse.json({ campaigns: store.campaigns || [] });
+    // Merge Supabase and in-memory campaigns by id so no campaign is ever missing
+    const map = new Map<string, any>();
+    for (const c of store.campaigns) {
+      if (c.id) map.set(c.id, c);
+    }
+    for (const c of supabaseCampaigns) {
+      if (c.id) {
+        // Keep in-memory enrichment like source_type if present
+        const local = map.get(c.id);
+        map.set(c.id, { ...c, ...(local || {}) });
+      }
+    }
+
+    const all = Array.from(map.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    return NextResponse.json({ campaigns: all });
   } catch {
     return NextResponse.json({ campaigns: store.campaigns || [] });
   }
@@ -83,16 +104,51 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     };
 
+    // Standard columns for database compatibility
+    const dbPayload = {
+      id: newCampaign.id,
+      name: newCampaign.name,
+      status: newCampaign.status,
+      send_limit: newCampaign.send_limit,
+      batch_size: newCampaign.batch_size,
+      delay_seconds: newCampaign.delay_seconds,
+      subject: newCampaign.subject,
+      from_name: newCampaign.from_name,
+      from_email: newCampaign.from_email,
+      sheet_id: newCampaign.sheet_id,
+      sheet_name: newCampaign.sheet_name,
+      template_id: newCampaign.template_id,
+      primary_recipient_field: newCampaign.primary_recipient_field,
+      total_count: newCampaign.total_count,
+      sent_count: newCampaign.sent_count,
+      sending_count: newCampaign.sending_count,
+      pending_count: newCampaign.pending_count,
+      failed_count: newCampaign.failed_count,
+      created_at: newCampaign.created_at,
+      started_at: newCampaign.started_at,
+      completed_at: newCampaign.completed_at,
+      updated_at: newCampaign.updated_at,
+    };
+
     // Try Supabase insertion
     if (
       process.env.NEXT_PUBLIC_SUPABASE_URL &&
       !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")
     ) {
-      const supabase = createAdminClient();
-      await supabase.from("campaigns").insert([newCampaign]);
+      try {
+        const supabase = createAdminClient();
+        // First attempt with full object
+        const { error: insertErr } = await supabase.from("campaigns").insert([newCampaign]);
+        if (insertErr) {
+          // Fallback to strict DB schema columns
+          await supabase.from("campaigns").insert([dbPayload]);
+        }
+      } catch (e) {
+        console.error("Supabase campaign insertion error:", e);
+      }
     }
 
-    // Keep store synchronized
+    // Keep in-memory store synchronized immediately
     store.campaigns.unshift(newCampaign);
 
     return NextResponse.json({ campaign: newCampaign }, { status: 201 });
