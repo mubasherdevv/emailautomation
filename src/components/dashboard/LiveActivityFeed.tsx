@@ -28,29 +28,29 @@ export function LiveActivityFeed({ events }: LiveActivityFeedProps) {
   const getEventStyle = (type: string) => {
     switch (type) {
       case "email_sent":
-        return "border-emerald-100 bg-emerald-50/20";
+        return "border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/20 dark:bg-emerald-950/20";
       case "email_failed":
-        return "border-rose-100 bg-rose-50/20";
+        return "border-rose-100 dark:border-rose-900/40 bg-rose-50/20 dark:bg-rose-950/20";
       case "email_sending":
-        return "border-purple-100 bg-purple-50/30";
+        return "border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/30 dark:bg-indigo-950/20";
       case "batch_started":
       case "batch_completed":
-        return "border-blue-100 bg-blue-50/20";
+        return "border-blue-100 dark:border-blue-900/40 bg-blue-50/20 dark:bg-blue-950/20";
       default:
-        return "border-neutral-100 bg-neutral-50/30";
+        return "border-neutral-100 dark:border-neutral-800 bg-neutral-50/30 dark:bg-neutral-900/30";
     }
   };
 
   return (
-    <div className="rounded-xl border border-[#E5E5E5] bg-white p-5 shadow-xs">
-      <div className="flex items-center justify-between pb-3 border-b border-[#F5F5F5]">
+    <div className="rounded-xl border border-[#E5E5E5] dark:border-neutral-800 bg-white dark:bg-[#121215] p-5 shadow-xs transition-colors">
+      <div className="flex items-center justify-between pb-3 border-b border-[#F5F5F5] dark:border-neutral-800">
         <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-[#6D28D9]" />
-          <h3 className="text-sm font-semibold text-[#111111] tracking-tight">
+          <Activity className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          <h3 className="text-sm font-semibold text-[#111111] dark:text-neutral-100 tracking-tight">
             Live Activity Feed
           </h3>
         </div>
-        <span className="text-[11px] text-[#666666] font-mono">
+        <span className="text-[11px] text-[#666666] dark:text-neutral-400 font-mono">
           {events.length} events logged
         </span>
       </div>

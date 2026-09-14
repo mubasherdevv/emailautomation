@@ -27,17 +27,17 @@ export function AnalyticsCharts({ campaigns }: AnalyticsChartsProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* Velocity / Campaign Breakdown Chart */}
-      <div className="lg:col-span-2 rounded-xl border border-[#E5E5E5] bg-white p-5 shadow-xs">
-        <div className="flex items-center justify-between pb-3 border-b border-[#F5F5F5]">
+      <div className="lg:col-span-2 rounded-xl border border-[#E5E5E5] dark:border-neutral-800 bg-white dark:bg-[#121215] p-5 shadow-xs transition-colors">
+        <div className="flex items-center justify-between pb-3 border-b border-[#F5F5F5] dark:border-neutral-800">
           <div className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-[#6D28D9]" />
-            <h3 className="text-sm font-semibold text-[#111111] tracking-tight">
+            <BarChart3 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            <h3 className="text-sm font-semibold text-[#111111] dark:text-neutral-100 tracking-tight">
               Campaign Delivery Velocity
             </h3>
           </div>
-          <div className="flex items-center gap-3 text-[11px] text-[#666666]">
+          <div className="flex items-center gap-3 text-[11px] text-[#666666] dark:text-neutral-400">
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-[#6D28D9]" />
+              <span className="h-2 w-2 rounded-full bg-indigo-600" />
               Sent
             </span>
             <span className="flex items-center gap-1">
@@ -58,22 +58,30 @@ export function AnalyticsCharts({ campaigns }: AnalyticsChartsProps) {
               return (
                 <div key={c.id} className="flex-1 flex flex-col items-center gap-2 group">
                   <div className="text-[10px] font-mono text-neutral-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {cSent} sent
+                    {cSent + cFailed}
                   </div>
-                  <div className="w-full flex items-end justify-center h-28">
+                  <div className="w-full h-full flex items-end justify-center">
                     <div
-                      className="w-full max-w-[36px] rounded-t-md bg-[#6D28D9] group-hover:bg-[#5b21b6] transition-all relative overflow-hidden"
+                      className="w-full max-w-[28px] rounded-t-md overflow-hidden flex flex-col justify-end transition-all duration-500 group-hover:brightness-110"
                       style={{ height: `${barHeight}%` }}
                     >
                       {cFailed > 0 && (
                         <div
-                          className="absolute top-0 left-0 right-0 bg-rose-500"
+                          className="w-full bg-rose-500"
                           style={{ height: `${(cFailed / (cSent + cFailed)) * 100}%` }}
+                          title={`Failed: ${cFailed}`}
+                        />
+                      )}
+                      {cSent > 0 && (
+                        <div
+                          className="w-full bg-indigo-600"
+                          style={{ height: `${(cSent / (cSent + cFailed)) * 100}%` }}
+                          title={`Sent: ${cSent}`}
                         />
                       )}
                     </div>
                   </div>
-                  <span className="text-[10px] font-medium text-neutral-600 truncate max-w-[80px]" title={c.name}>
+                  <span className="text-[10px] font-medium text-neutral-600 dark:text-neutral-400 truncate max-w-[60px] text-center" title={c.name}>
                     {c.name}
                   </span>
                 </div>
@@ -82,11 +90,11 @@ export function AnalyticsCharts({ campaigns }: AnalyticsChartsProps) {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-48 text-center px-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-400 mb-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-400 mb-2">
               <BarChart3 className="h-5 w-5" />
             </div>
-            <p className="text-xs font-semibold text-neutral-800">No sending velocity recorded yet</p>
-            <p className="text-[11px] text-neutral-500 mt-1 max-w-sm">
+            <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">No sending velocity recorded yet</p>
+            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 max-w-sm">
               Live delivery velocity and volume metrics will dynamically appear here when campaigns are actively dispatched.
             </p>
           </div>
@@ -94,16 +102,16 @@ export function AnalyticsCharts({ campaigns }: AnalyticsChartsProps) {
       </div>
 
       {/* Aggregate Sent vs Failed Ratio */}
-      <div className="rounded-xl border border-[#E5E5E5] bg-white p-5 shadow-xs flex flex-col justify-between">
+      <div className="rounded-xl border border-[#E5E5E5] dark:border-neutral-800 bg-white dark:bg-[#121215] p-5 shadow-xs flex flex-col justify-between transition-colors">
         <div>
-          <div className="flex items-center justify-between pb-3 border-b border-[#F5F5F5]">
+          <div className="flex items-center justify-between pb-3 border-b border-[#F5F5F5] dark:border-neutral-800">
             <div className="flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-[#6D28D9]" />
-              <h3 className="text-sm font-semibold text-[#111111] tracking-tight">
+              <PieChart className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <h3 className="text-sm font-semibold text-[#111111] dark:text-neutral-100 tracking-tight">
                 Delivery Breakdown
               </h3>
             </div>
-            <TrendingUp className="h-4 w-4 text-emerald-600" />
+            <TrendingUp className="h-4 w-4 text-emerald-500" />
           </div>
 
           <div className="mt-5 space-y-3.5">
