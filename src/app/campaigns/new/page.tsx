@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AdminShell } from "@/components/layout/AdminShell";
-import { EmailTemplate } from "@/types";
+import { EmailTemplate, Contact } from "@/types";
 import {
   ArrowLeft,
   FileSpreadsheet,
@@ -14,6 +14,14 @@ import {
   Clock,
   Layers,
   Sliders,
+  Users,
+  CheckSquare,
+  Square,
+  Search,
+  CheckCircle2,
+  Filter,
+  Globe,
+  Mail,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 
@@ -23,6 +31,14 @@ export default function NewCampaignPage() {
 
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Lead Source Type: "sheets" or "contacts"
+  const [sourceType, setSourceType] = useState<"sheets" | "contacts">("sheets");
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactStatusFilter, setContactStatusFilter] = useState<"all" | "pending">("all");
 
   // Form State
   const [name, setName] = useState("Outreach Campaign");
@@ -70,6 +86,36 @@ export default function NewCampaignPage() {
         }
       })
       .catch((err) => console.error("Error fetching templates", err));
+
+    // Load contacts from directory
+    setLoadingContacts(true);
+    fetch("/api/contacts")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.contacts && Array.isArray(data.contacts)) {
+          setContacts(data.contacts);
+
+          // Check if contacts were preselected from Contacts page
+          try {
+            const raw = localStorage.getItem("campaign_selected_contact_ids");
+            if (raw) {
+              const ids: string[] = JSON.parse(raw);
+              if (Array.isArray(ids) && ids.length > 0) {
+                setSelectedContactIds(new Set(ids));
+                setSourceType("contacts");
+                setSendLimit(ids.length);
+              }
+              localStorage.removeItem("campaign_selected_contact_ids");
+            } else if (typeof window !== "undefined" && window.location.search.includes("source=contacts")) {
+              setSourceType("contacts");
+            }
+          } catch {
+            // ignore
+          }
+        }
+      })
+      .catch((err) => console.error("Error loading contacts", err))
+      .finally(() => setLoadingContacts(false));
   }, []);
 
   const handleTemplateSelect = (id: string) => {
@@ -80,19 +126,76 @@ export default function NewCampaignPage() {
     }
   };
 
+  // Filtered contacts for directory picker
+  const filteredContacts = useMemo(() => {
+    const q = contactSearch.toLowerCase().trim();
+    return contacts.filter((c) => {
+      if (contactStatusFilter === "pending" && c.status !== "pending") return false;
+      if (!q) return true;
+      return (
+        (c.email && c.email.toLowerCase().includes(q)) ||
+        (c.first_name && c.first_name.toLowerCase().includes(q)) ||
+        (c.last_name && c.last_name.toLowerCase().includes(q)) ||
+        (c.website && c.website.toLowerCase().includes(q))
+      );
+    });
+  }, [contacts, contactSearch, contactStatusFilter]);
+
+  const handleToggleContact = (id: string) => {
+    setSelectedContactIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      setSendLimit(Math.max(1, next.size));
+      return next;
+    });
+  };
+
+  const handleSelectAllFilteredContacts = () => {
+    const allFilteredIds = filteredContacts.map((c) => c.id);
+    const areAllSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedContactIds.has(id));
+    setSelectedContactIds((prev) => {
+      const next = new Set(prev);
+      if (areAllSelected) {
+        allFilteredIds.forEach((id) => next.delete(id));
+      } else {
+        allFilteredIds.forEach((id) => next.add(id));
+      }
+      setSendLimit(Math.max(1, next.size));
+      return next;
+    });
+  };
+
+  const handleSelectAllPendingContacts = () => {
+    const pendingIds = contacts.filter((c) => c.status === "pending").map((c) => c.id);
+    setSelectedContactIds(new Set(pendingIds));
+    setSendLimit(Math.max(1, pendingIds.length));
+  };
+
   const handleSubmit = async (e: React.FormEvent, shouldStartImmediately = false) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      if (sourceType === "contacts" && selectedContactIds.size === 0) {
+        toast("No Contacts Selected", "Please select at least 1 contact lead from the directory", "error");
+        setLoading(false);
+        return;
+      }
+
       // 1. Create campaign record
       const res = await fetch("/api/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          sheetId,
-          sheetName,
+          sourceType,
+          selectedContactIds: Array.from(selectedContactIds),
+          sheetId: sourceType === "sheets" ? sheetId : (sheetId || "contacts_source"),
+          sheetName: sourceType === "sheets" ? sheetName : "Contacts",
           templateId: templateId || undefined,
           subject,
           fromName,
@@ -253,45 +356,238 @@ export default function NewCampaignPage() {
           </div>
         </div>
 
-        {/* Step 2: Google Sheets Lead Source */}
+        {/* Step 2: Lead Source (Contacts Directory vs Google Sheets) */}
         <div className="rounded-xl border border-[#E5E5E5] bg-white p-6 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-[#F5F5F5]">
-            <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-            <h3 className="text-sm font-semibold text-[#111111]">2. Google Sheets Lead Source</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-[#111111] mb-1.5">
-                Google Sheet ID *
-              </label>
-              <input
-                type="text"
-                required
-                value={sheetId}
-                onChange={(e) => setSheetId(e.target.value)}
-                placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-                className="w-full rounded-lg border border-[#E5E5E5] px-3.5 py-2 text-xs text-[#111111] font-mono focus:border-[#6D28D9] focus:outline-hidden"
-              />
-              <span className="text-[10px] text-[#666666] mt-1 block">
-                Extracted from your spreadsheet URL: /d/{"<ID>"}/edit
-              </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#F5F5F5]">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-purple-600" />
+              <h3 className="text-sm font-semibold text-[#111111]">2. Lead Source</h3>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-[#111111] mb-1.5">
-                Sheet / Tab Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={sheetName}
-                onChange={(e) => setSheetName(e.target.value)}
-                placeholder="Sheet1"
-                className="w-full rounded-lg border border-[#E5E5E5] px-3.5 py-2 text-xs text-[#111111] focus:border-[#6D28D9] focus:outline-hidden"
-              />
+            {/* Source Segmented Switcher */}
+            <div className="inline-flex rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 text-xs font-medium">
+              <button
+                type="button"
+                onClick={() => {
+                  setSourceType("contacts");
+                  if (selectedContactIds.size === 0 && contacts.length > 0) {
+                    const pendingIds = contacts.filter((c) => c.status === "pending").map((c) => c.id);
+                    const targetIds = pendingIds.length > 0 ? pendingIds : contacts.map((c) => c.id);
+                    setSelectedContactIds(new Set(targetIds));
+                    setSendLimit(targetIds.length);
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition cursor-pointer ${
+                  sourceType === "contacts"
+                    ? "bg-white text-purple-700 shadow-xs font-semibold"
+                    : "text-neutral-600 hover:text-neutral-900"
+                }`}
+              >
+                <Users className="h-3.5 w-3.5" />
+                <span>Contacts Directory ({selectedContactIds.size} Selected)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSourceType("sheets")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition cursor-pointer ${
+                  sourceType === "sheets"
+                    ? "bg-white text-emerald-700 shadow-xs font-semibold"
+                    : "text-neutral-600 hover:text-neutral-900"
+                }`}
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Google Sheets</span>
+              </button>
             </div>
           </div>
+
+          {/* CONTACTS DIRECTORY SOURCE */}
+          {sourceType === "contacts" && (
+            <div className="space-y-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 bg-neutral-50 dark:bg-neutral-800/40 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700">
+                {/* Search */}
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-neutral-400" />
+                  <input
+                    type="text"
+                    value={contactSearch}
+                    onChange={(e) => setContactSearch(e.target.value)}
+                    placeholder="Filter contacts by name, email, company..."
+                    className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-neutral-200 bg-white dark:bg-neutral-800 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-purple-500 focus:outline-hidden"
+                  />
+                </div>
+
+                {/* Quick Selection Buttons */}
+                <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllPendingContacts}
+                    className="px-2.5 py-1 rounded-md border border-neutral-200 bg-white hover:bg-neutral-100 text-neutral-700 font-medium transition cursor-pointer"
+                  >
+                    Select Pending ({contacts.filter((c) => c.status === "pending").length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSelectAllFilteredContacts}
+                    className="px-2.5 py-1 rounded-md border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 font-medium transition cursor-pointer"
+                  >
+                    Select All Filtered ({filteredContacts.length})
+                  </button>
+
+                  {selectedContactIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedContactIds(new Set());
+                        setSendLimit(1);
+                      }}
+                      className="px-2 py-1 text-[11px] text-neutral-500 hover:text-neutral-800 underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Contacts Table List */}
+              <div className="border border-neutral-200 dark:border-neutral-700 rounded-xl overflow-hidden max-h-60 overflow-y-auto">
+                {loadingContacts ? (
+                  <div className="p-6 text-center text-xs text-neutral-500">Loading directory contacts...</div>
+                ) : filteredContacts.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-neutral-500">
+                    No contacts match the filter. Add contacts in the Contacts page first.
+                  </div>
+                ) : (
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-neutral-50 dark:bg-neutral-800/70 text-neutral-500 border-b border-neutral-200 dark:border-neutral-700 sticky top-0">
+                      <tr>
+                        <th className="w-9 px-3 py-2 text-center">
+                          <button
+                            type="button"
+                            onClick={handleSelectAllFilteredContacts}
+                            className="cursor-pointer"
+                          >
+                            {filteredContacts.length > 0 &&
+                            filteredContacts.every((c) => selectedContactIds.has(c.id)) ? (
+                              <CheckSquare className="h-3.5 w-3.5 text-purple-600" />
+                            ) : (
+                              <Square className="h-3.5 w-3.5 text-neutral-400" />
+                            )}
+                          </button>
+                        </th>
+                        <th className="px-3 py-2 font-semibold">Lead Contact</th>
+                        <th className="px-3 py-2 font-semibold">Company / Website</th>
+                        <th className="px-3 py-2 font-semibold">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                      {filteredContacts.map((c) => {
+                        const isSelected = selectedContactIds.has(c.id);
+                        return (
+                          <tr
+                            key={c.id}
+                            onClick={() => handleToggleContact(c.id)}
+                            className={`cursor-pointer transition hover:bg-neutral-50/80 dark:hover:bg-neutral-800/50 ${
+                              isSelected ? "bg-purple-50/40 dark:bg-purple-950/20" : ""
+                            }`}
+                          >
+                            <td className="px-3 py-2 text-center">
+                              {isSelected ? (
+                                <CheckSquare className="h-3.5 w-3.5 text-purple-600 inline" />
+                              ) : (
+                                <Square className="h-3.5 w-3.5 text-neutral-300 inline" />
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="font-semibold text-neutral-900 dark:text-neutral-100">
+                                {c.first_name || c.last_name
+                                  ? `${c.first_name || ""} ${c.last_name || ""}`.trim()
+                                  : "Lead"}
+                              </div>
+                              <div className="font-mono text-[11px] text-purple-600 dark:text-purple-400">
+                                {c.email}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 text-neutral-500">
+                              {c.website ? (
+                                <span className="flex items-center gap-1">
+                                  <Globe className="h-3 w-3 text-neutral-400" />
+                                  <span className="truncate max-w-[160px]">{c.website}</span>
+                                </span>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${
+                                  c.status === "sent"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : c.status === "failed"
+                                    ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                    : "bg-amber-50 text-amber-700 border border-amber-200"
+                                }`}
+                              >
+                                {c.status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* Selection Summary Pill */}
+              <div className="flex items-center justify-between text-xs p-2.5 rounded-lg bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900 text-purple-800 dark:text-purple-300">
+                <span className="font-medium">
+                  <strong>{selectedContactIds.size}</strong> leads selected out of {contacts.length} total contacts.
+                </span>
+                <span className="text-[11px] text-purple-600 dark:text-purple-400">
+                  Send Limit auto-aligned to {selectedContactIds.size}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* GOOGLE SHEETS SOURCE */}
+          {sourceType === "sheets" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#111111] mb-1.5">
+                  Google Sheet ID *
+                </label>
+                <input
+                  type="text"
+                  required={sourceType === "sheets"}
+                  value={sheetId}
+                  onChange={(e) => setSheetId(e.target.value)}
+                  placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                  className="w-full rounded-lg border border-[#E5E5E5] px-3.5 py-2 text-xs text-[#111111] font-mono focus:border-[#6D28D9] focus:outline-hidden"
+                />
+                <span className="text-[10px] text-[#666666] mt-1 block">
+                  Extracted from your spreadsheet URL: /d/{"<ID>"}/edit
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#111111] mb-1.5">
+                  Sheet / Tab Name *
+                </label>
+                <input
+                  type="text"
+                  required={sourceType === "sheets"}
+                  value={sheetName}
+                  onChange={(e) => setSheetName(e.target.value)}
+                  placeholder="Sheet1"
+                  className="w-full rounded-lg border border-[#E5E5E5] px-3.5 py-2 text-xs text-[#111111] focus:border-[#6D28D9] focus:outline-hidden"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Email Selection Safety Rule */}
           <div className="p-3.5 rounded-lg border border-purple-100 bg-purple-50/40">

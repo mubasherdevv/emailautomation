@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Contact } from "@/types";
@@ -23,6 +24,12 @@ import {
   MapPin,
   X,
   AlertTriangle,
+  Send,
+  FileText,
+  CheckCircle2,
+  Layers,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 
@@ -30,7 +37,10 @@ type FilterCriterion = "all" | "pending" | "sending" | "sent" | "failed" | "has_
 type PageSizeOption = "50" | "100" | "500" | "1000" | "all" | "custom";
 
 export default function ContactsPage() {
+  const router = useRouter();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
   const [filterCriterion, setFilterCriterion] = useState<FilterCriterion>("all");
@@ -39,6 +49,14 @@ export default function ContactsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Bulk Add Leads Modal State
+  const [showBulkAddModal, setShowBulkAddModal] = useState(false);
+  const [bulkTab, setBulkTab] = useState<"paste" | "csv">("paste");
+  const [bulkText, setBulkText] = useState("");
+  const [bulkFileName, setBulkFileName] = useState("");
+  const [bulkParsedRows, setBulkParsedRows] = useState<Array<Record<string, string>>>([]);
+  const [bulkImporting, setBulkImporting] = useState(false);
 
   // Selection state for single & bulk actions
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -247,6 +265,139 @@ export default function ContactsPage() {
     }
   };
 
+  // Helper to parse pasted raw text or CSV content
+  const parseRawContactsText = (text: string): Array<Record<string, string>> => {
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length === 0) return [];
+
+    const firstLine = lines[0].toLowerCase();
+    const hasHeader =
+      firstLine.includes("email") ||
+      firstLine.includes("name") ||
+      firstLine.includes("first") ||
+      !firstLine.includes("@");
+
+    const rawHeaders = hasHeader
+      ? lines[0].split(/[,\t]/).map((h) => h.trim().replace(/^["']|["']$/g, ""))
+      : ["email", "firstName", "lastName", "website", "contact", "address"];
+
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+    const result: Array<Record<string, string>> = [];
+
+    for (const line of dataLines) {
+      if (!line) continue;
+      const parts = line.includes("\t")
+        ? line.split("\t")
+        : line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map((p) => p.trim().replace(/^["']|["']$/g, ""));
+
+      // Direct single email line check
+      if (parts.length === 1 && parts[0].includes("@")) {
+        result.push({
+          email: parts[0].trim(),
+          firstName: "",
+          lastName: "",
+          website: "",
+          contact: "",
+          address: "",
+        });
+        continue;
+      }
+
+      const rowObj: Record<string, string> = {};
+      rawHeaders.forEach((h, idx) => {
+        if (parts[idx] !== undefined) {
+          rowObj[h] = parts[idx].trim();
+        }
+      });
+
+      // If at least one column has an email
+      if (Object.values(rowObj).some((v) => typeof v === "string" && v.includes("@"))) {
+        result.push(rowObj);
+      }
+    }
+
+    return result;
+  };
+
+  const handleBulkTextChange = (txt: string) => {
+    setBulkText(txt);
+    const parsed = parseRawContactsText(txt);
+    setBulkParsedRows(parsed);
+  };
+
+  const handleCsvFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBulkFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setBulkText(content);
+        const parsed = parseRawContactsText(content);
+        setBulkParsedRows(parsed);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleBulkImportSubmit = async () => {
+    if (bulkParsedRows.length === 0) {
+      toast("No Valid Leads", "Please enter or upload at least one contact with a valid email", "error");
+      return;
+    }
+
+    setBulkImporting(true);
+    try {
+      const res = await fetch("/api/contacts/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sheetId: "manual_bulk_import",
+          sheetName: "Bulk Upload",
+          rows: bulkParsedRows,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to import contacts");
+
+      toast(
+        "Bulk Import Successful",
+        `Imported ${data.summary?.importedCount || bulkParsedRows.length} contacts (${data.summary?.duplicateCount || 0} duplicates skipped)`,
+        "success"
+      );
+
+      setShowBulkAddModal(false);
+      setBulkText("");
+      setBulkFileName("");
+      setBulkParsedRows([]);
+      fetchContacts();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Bulk import failed";
+      toast("Import Error", msg, "error");
+    } finally {
+      setBulkImporting(false);
+    }
+  };
+
+  // Launch campaign creator with selected contacts
+  const handleCreateCampaignWithSelected = () => {
+    if (selectedIds.size === 0) return;
+    const selectedList = contacts.filter((c) => selectedIds.has(c.id));
+    try {
+      localStorage.setItem("campaign_selected_contact_ids", JSON.stringify(Array.from(selectedIds)));
+      localStorage.setItem("campaign_selected_contacts_cache", JSON.stringify(selectedList));
+    } catch {
+      // ignore storage quota errors
+    }
+    router.push("/campaigns/new?source=contacts");
+  };
+
   // Export filtered contacts to CSV
   const handleExportCsv = () => {
     if (filteredContacts.length === 0) return;
@@ -299,11 +450,19 @@ export default function ContactsPage() {
           </Link>
 
           <button
+            onClick={() => setShowBulkAddModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/70 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-xs font-semibold hover:bg-purple-100 dark:hover:bg-purple-900/60 transition shadow-2xs cursor-pointer"
+          >
+            <Users className="h-3.5 w-3.5 text-purple-600" />
+            <span>Bulk Add Leads</span>
+          </button>
+
+          <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#6D28D9] text-white text-xs font-semibold hover:bg-[#5b21b6] transition shadow-xs cursor-pointer"
           >
             <UserPlus className="h-3.5 w-3.5" />
-            <span>Add Contact</span>
+            <span>Add Single</span>
           </button>
         </div>
       }
@@ -432,6 +591,15 @@ export default function ContactsPage() {
             {selectedIds.size > 0 && (
               <>
                 <button
+                  onClick={handleCreateCampaignWithSelected}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs transition shadow-xs cursor-pointer"
+                  title="Configure and launch a new campaign with these selected leads"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  <span>Create Campaign ({selectedIds.size} Leads)</span>
+                </button>
+
+                <button
                   onClick={requestDeleteBulk}
                   className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-rose-600 text-white font-semibold text-xs hover:bg-rose-700 transition shadow-2xs cursor-pointer"
                 >
@@ -441,7 +609,7 @@ export default function ContactsPage() {
 
                 <button
                   onClick={() => setSelectedIds(new Set())}
-                  className="text-[11px] text-neutral-500 hover:text-neutral-800 underline"
+                  className="text-[11px] text-neutral-500 hover:text-neutral-800 underline cursor-pointer"
                 >
                   Clear Selection
                 </button>
@@ -834,6 +1002,188 @@ export default function ContactsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
+      {/* BULK ADD CONTACTS MODAL */}
+      {/* ========================================================================= */}
+      {showBulkAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                    Bulk Add Contacts & Leads
+                  </h3>
+                  <p className="text-xs text-neutral-500">
+                    Paste raw email lists or upload a CSV file with automatic column mapping
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowBulkAddModal(false)}
+                className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Mode Switcher */}
+            <div className="flex items-center gap-2 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/60 text-xs">
+              <button
+                type="button"
+                onClick={() => setBulkTab("paste")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-medium transition cursor-pointer ${
+                  bulkTab === "paste"
+                    ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs font-semibold"
+                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
+                }`}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>Quick Paste Text</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkTab("csv")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-medium transition cursor-pointer ${
+                  bulkTab === "csv"
+                    ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs font-semibold"
+                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
+                }`}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span>Upload CSV File</span>
+              </button>
+            </div>
+
+            {/* Paste Tab */}
+            {bulkTab === "paste" && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-neutral-700 dark:text-neutral-300">
+                    Paste Emails or CSV formatted leads:
+                  </span>
+                  <span className="text-[11px] text-neutral-500">
+                    1 lead per line (e.g. email or email, firstName, website)
+                  </span>
+                </div>
+                <textarea
+                  rows={8}
+                  value={bulkText}
+                  onChange={(e) => handleBulkTextChange(e.target.value)}
+                  placeholder={`john@example.com\nsarah@company.com, Sarah, Connor, https://company.com\ncontact@agency.org, Alex, Smith`}
+                  className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 p-3 font-mono text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-purple-500 focus:outline-hidden"
+                />
+              </div>
+            )}
+
+            {/* CSV File Upload Tab */}
+            {bulkTab === "csv" && (
+              <div className="space-y-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleCsvFileUpload}
+                  className="hidden"
+                />
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-neutral-300 dark:border-neutral-700 hover:border-purple-500 dark:hover:border-purple-500 rounded-2xl p-8 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition bg-neutral-50/50 dark:bg-neutral-800/30"
+                >
+                  <div className="p-3 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
+                    <Upload className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                      {bulkFileName ? `Selected: ${bulkFileName}` : "Click to browse or drop CSV file here"}
+                    </p>
+                    <p className="text-[11px] text-neutral-500 mt-0.5">
+                      Supports comma or tab delimited files with headers: Email, Name, Website, etc.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Live Parsing Summary & Preview */}
+            {bulkParsedRows.length > 0 && (
+              <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>{bulkParsedRows.length} Contacts Ready to Import</span>
+                  </div>
+                  <span className="text-[11px] text-emerald-600/80 dark:text-emerald-500">
+                    Auto deduplication enabled
+                  </span>
+                </div>
+
+                {/* Preview sample */}
+                <div className="max-h-28 overflow-y-auto rounded-lg border border-emerald-200/60 dark:border-emerald-900/40 bg-white/70 dark:bg-neutral-900/70 text-[11px]">
+                  <table className="w-full text-left">
+                    <thead className="bg-neutral-50 dark:bg-neutral-800/60 text-neutral-500 border-b border-neutral-200 dark:border-neutral-800">
+                      <tr>
+                        <th className="px-2.5 py-1 font-medium">Email</th>
+                        <th className="px-2.5 py-1 font-medium">Name</th>
+                        <th className="px-2.5 py-1 font-medium">Website</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                      {bulkParsedRows.slice(0, 3).map((row, idx) => (
+                        <tr key={idx}>
+                          <td className="px-2.5 py-1 font-mono text-purple-600 dark:text-purple-400">
+                            {row.email || Object.values(row).find((v) => typeof v === "string" && v.includes("@")) || "—"}
+                          </td>
+                          <td className="px-2.5 py-1 text-neutral-700 dark:text-neutral-300">
+                            {row.firstName || row["First Name"] || row.name || "—"}
+                          </td>
+                          <td className="px-2.5 py-1 text-neutral-500 truncate max-w-[120px]">
+                            {row.website || row["Website"] || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBulkAddModal(false);
+                  setBulkText("");
+                  setBulkFileName("");
+                  setBulkParsedRows([]);
+                }}
+                className="px-3.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkImportSubmit}
+                disabled={bulkParsedRows.length === 0 || bulkImporting}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-purple-600 text-xs font-semibold text-white hover:bg-purple-700 transition disabled:opacity-50 cursor-pointer shadow-xs"
+              >
+                {bulkImporting ? (
+                  <>Importing...</>
+                ) : (
+                  <>
+                    <Upload className="h-3.5 w-3.5" />
+                    <span>Import {bulkParsedRows.length > 0 ? `(${bulkParsedRows.length}) Leads` : "Leads"}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

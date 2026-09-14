@@ -20,6 +20,8 @@ export interface Campaign {
   from_email: string;
   sheet_id: string;
   sheet_name: string;
+  source_type?: "sheets" | "contacts";
+  selected_contact_ids?: string[];
   template_id?: string | null;
   primary_recipient_field: "email" | "personal_email";
   
@@ -124,8 +126,10 @@ export interface CampaignEvent {
 // Zod Validation Schemas
 export const CreateCampaignSchema = z.object({
   name: z.string().min(2, "Campaign name must be at least 2 characters").max(100),
-  sheetId: z.string().min(1, "Google Sheet ID is required"),
+  sourceType: z.enum(["sheets", "contacts"]).optional().default("sheets"),
+  sheetId: z.string().optional().default(""),
   sheetName: z.string().default("Sheet1"),
+  selectedContactIds: z.array(z.string()).optional().default([]),
   templateId: z.string().optional().nullable(),
   subject: z.string().min(1, "Subject line is required"),
   fromName: z.string().min(1, "From Name is required"),

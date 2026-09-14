@@ -50,15 +50,23 @@ export async function DELETE(
       !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")
     ) {
       const supabase = createAdminClient();
-      // First clean child records to ensure foreign key constraints don't block deletion
+      // Clean temporary campaign events and pivot mappings, but PRESERVE all email logs!
       await supabase.from("campaign_events").delete().eq("campaign_id", id);
       await supabase.from("campaign_contacts").delete().eq("campaign_id", id);
-      await supabase.from("email_logs").delete().eq("campaign_id", id);
+      // Unlink campaign_id on email_logs so historical delivery records remain permanent
+      await supabase.from("email_logs").update({ campaign_id: null }).eq("campaign_id", id);
       
       const { error } = await supabase.from("campaigns").delete().eq("id", id);
       if (error) {
         console.error("Supabase campaign delete error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+    }
+
+    // Preserve logs in in-memory store
+    for (const log of store.logs) {
+      if (log.campaign_id === id) {
+        log.campaign_id = null;
       }
     }
 

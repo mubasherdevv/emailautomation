@@ -56,10 +56,60 @@ export async function POST(
       }
     }
 
+    // Resolve leads if campaign uses contacts directory
+    let leads: Array<{
+      "First Name": string;
+      "Last Name": string;
+      "Email": string;
+      "Personal Email": string;
+      "Website": string;
+      "Address": string;
+      "Contact": string;
+    }> = [];
+
+    if (campaign.source_type === "contacts") {
+      const idList = campaign.selected_contact_ids || [];
+      const idSet = new Set(idList);
+      let matchedContacts = idSet.size > 0 
+        ? store.contacts.filter((c) => idSet.has(c.id))
+        : store.contacts;
+
+      if (
+        matchedContacts.length === 0 &&
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")
+      ) {
+        try {
+          const supabase = createAdminClient();
+          let q = supabase.from("contacts").select("*");
+          if (idList.length > 0) {
+            q = q.in("id", idList);
+          }
+          const { data } = await q;
+          if (data && Array.isArray(data)) {
+            matchedContacts = data;
+          }
+        } catch (e) {
+          console.error("Error fetching campaign contacts from Supabase", e);
+        }
+      }
+
+      leads = matchedContacts.map((c) => ({
+        "First Name": c.first_name || "",
+        "Last Name": c.last_name || "",
+        "Email": c.email || "",
+        "Personal Email": c.personal_email || "",
+        "Website": c.website || "",
+        "Address": c.address || "",
+        "Contact": c.contact || "",
+      }));
+    }
+
     // Prepare secure payload for n8n automation engine
     const n8nPayload = {
       campaignId: campaign.id,
       campaignName: campaign.name,
+      sourceType: campaign.source_type || "sheets",
       sendLimit: campaign.send_limit,
       batchSize: campaign.batch_size,
       delaySeconds: campaign.delay_seconds,
@@ -72,6 +122,7 @@ export async function POST(
       primaryRecipientField: campaign.primary_recipient_field,
       htmlBody: htmlBody || "<p>Hi {{firstName}}, hope you are well!</p>",
       textBody: textBody || "",
+      leads: leads,
     };
 
     const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
