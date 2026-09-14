@@ -73,29 +73,36 @@ html.dark body {
 
 /* Base Surfaces & Backgrounds */
 html.dark .bg-white,
-html.dark .bg-\[\#ffffff\] {
-  background-color: #121215 !important;
-}
-
+html.dark .bg-\[\#ffffff\],
 html.dark .bg-\[\#FDFDFD\],
 html.dark .bg-\[\#F5F5F5\],
 html.dark [class*="bg-[#F5F5F5]"],
 html.dark [class*="bg-[#FDFDFD]"],
-html.dark .bg-neutral-50,
-html.dark .bg-slate-50,
-html.dark .bg-gray-50 {
-  background-color: #121215 !important;
+html.dark [class*="bg-neutral-50"],
+html.dark [class*="bg-neutral-100"],
+html.dark [class*="bg-neutral-200"],
+html.dark [class*="bg-slate-50"],
+html.dark [class*="bg-slate-100"],
+html.dark [class*="bg-slate-200"],
+html.dark [class*="bg-gray-50"],
+html.dark [class*="bg-gray-100"],
+html.dark [class*="bg-gray-200"],
+html.dark [class*="bg-purple-50"],
+html.dark [class*="bg-purple-100"],
+html.dark [class*="bg-indigo-50"],
+html.dark [class*="bg-indigo-100"] {
+  background-color: #14161f !important;
 }
 
 html.dark .bg-white\/90,
 html.dark header {
-  background-color: rgba(18, 18, 21, 0.85) !important;
-  border-color: #27272a !important;
+  background-color: rgba(14, 16, 23, 0.85) !important;
+  border-color: #262936 !important;
 }
 
 html.dark aside {
-  background-color: #0e0e11 !important;
-  border-color: #27272a !important;
+  background-color: #0d0f15 !important;
+  border-color: #262936 !important;
 }
 
 /* Borders */
@@ -103,11 +110,29 @@ html.dark .border-\[\#E5E5E5\],
 html.dark .border-\[\#F5F5F5\],
 html.dark [class*="border-[#E5E5E5]"],
 html.dark [class*="border-[#F5F5F5]"],
-html.dark .border-neutral-200,
-html.dark .border-neutral-100,
-html.dark .border-slate-200,
-html.dark .border-gray-200 {
-  border-color: #27272a !important;
+html.dark [class*="border-neutral-100"],
+html.dark [class*="border-neutral-200"],
+html.dark [class*="border-neutral-300"],
+html.dark [class*="border-purple-100"],
+html.dark [class*="border-purple-200"],
+html.dark [class*="border-indigo-100"],
+html.dark [class*="border-indigo-200"],
+html.dark [class*="border-slate-100"],
+html.dark [class*="border-slate-200"],
+html.dark [class*="border-gray-100"],
+html.dark [class*="border-gray-200"] {
+  border-color: #262936 !important;
+}
+
+/* Hover States */
+html.dark [class*="hover:bg-neutral-50"]:hover,
+html.dark [class*="hover:bg-neutral-100"]:hover,
+html.dark [class*="hover:bg-neutral-200"]:hover,
+html.dark [class*="hover:bg-gray-100"]:hover,
+html.dark [class*="hover:bg-gray-200"]:hover,
+html.dark [class*="hover:bg-[#F5F5F5]"]:hover {
+  background-color: #202430 !important;
+  color: #f4f4f5 !important;
 }
 
 /* Typography */

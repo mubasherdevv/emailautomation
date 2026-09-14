@@ -340,8 +340,8 @@ export default function ContactsPage() {
               onClick={() => setFilterCriterion("all")}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
                 filterCriterion === "all"
-                  ? "bg-[#6D28D9] text-white font-semibold"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "bg-indigo-600 text-white font-semibold shadow-xs"
+                  : "bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
               }`}
             >
               All ({contacts.length})
@@ -350,8 +350,8 @@ export default function ContactsPage() {
               onClick={() => setFilterCriterion("pending")}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
                 filterCriterion === "pending"
-                  ? "bg-[#6D28D9] text-white font-semibold"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "bg-indigo-600 text-white font-semibold shadow-xs"
+                  : "bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
               }`}
             >
               Pending
@@ -360,8 +360,8 @@ export default function ContactsPage() {
               onClick={() => setFilterCriterion("sent")}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
                 filterCriterion === "sent"
-                  ? "bg-[#6D28D9] text-white font-semibold"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "bg-indigo-600 text-white font-semibold shadow-xs"
+                  : "bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
               }`}
             >
               Sent
@@ -370,8 +370,8 @@ export default function ContactsPage() {
               onClick={() => setFilterCriterion("failed")}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
                 filterCriterion === "failed"
-                  ? "bg-[#6D28D9] text-white font-semibold"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "bg-indigo-600 text-white font-semibold shadow-xs"
+                  : "bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
               }`}
             >
               Failed
@@ -380,8 +380,8 @@ export default function ContactsPage() {
               onClick={() => setFilterCriterion("has_phone")}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 cursor-pointer ${
                 filterCriterion === "has_phone"
-                  ? "bg-[#6D28D9] text-white font-semibold"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "bg-indigo-600 text-white font-semibold shadow-xs"
+                  : "bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
               }`}
             >
               <Phone className="h-3 w-3" />
@@ -391,8 +391,8 @@ export default function ContactsPage() {
               onClick={() => setFilterCriterion("has_website")}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 cursor-pointer ${
                 filterCriterion === "has_website"
-                  ? "bg-[#6D28D9] text-white font-semibold"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "bg-indigo-600 text-white font-semibold shadow-xs"
+                  : "bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
               }`}
             >
               <Globe className="h-3 w-3" />
@@ -402,8 +402,8 @@ export default function ContactsPage() {
               onClick={() => setFilterCriterion("has_personal_email")}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 cursor-pointer ${
                 filterCriterion === "has_personal_email"
-                  ? "bg-[#6D28D9] text-white font-semibold"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "bg-indigo-600 text-white font-semibold shadow-xs"
+                  : "bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
               }`}
             >
               <Mail className="h-3 w-3" />
@@ -413,13 +413,13 @@ export default function ContactsPage() {
         </div>
 
         {/* Rows per page selector, Bulk selection & Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-neutral-100 text-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-neutral-100 dark:border-neutral-800 text-xs">
           {/* Bulk Selection and Delete Button */}
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleSelectAllFiltered}
               disabled={filteredContacts.length === 0}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-neutral-200 bg-neutral-50 text-neutral-700 text-xs font-medium hover:bg-neutral-100 transition disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-300 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700 transition disabled:opacity-50 cursor-pointer"
             >
               {allFilteredSelected ? (
                 <CheckSquare className="h-3.5 w-3.5 text-[#6D28D9]" />

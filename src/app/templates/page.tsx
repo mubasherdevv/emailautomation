@@ -334,14 +334,14 @@ export default function TemplatesPage() {
                   onClick={() => selectTemplateForEditing(tpl)}
                   className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                     isSelected
-                      ? "border-[#6D28D9] bg-purple-50/50 shadow-xs ring-1 ring-[#6D28D9]/30"
-                      : "border-[#E5E5E5] bg-white hover:border-neutral-300"
+                      ? "border-indigo-600 dark:border-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/40 shadow-xs ring-1 ring-indigo-500/30"
+                      : "border-[#E5E5E5] dark:border-neutral-800 bg-white dark:bg-[#121215] hover:border-neutral-300 dark:hover:border-neutral-700"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-1.5">
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-xs font-semibold text-[#111111] truncate">{tpl.name}</h4>
-                      <p className="mt-1 text-[11px] text-[#666666] truncate">
+                      <h4 className="text-xs font-semibold text-[#111111] dark:text-neutral-100 truncate">{tpl.name}</h4>
+                      <p className="mt-1 text-[11px] text-[#666666] dark:text-neutral-400 truncate">
                         {tpl.subject}
                       </p>
                     </div>
@@ -352,7 +352,7 @@ export default function TemplatesPage() {
                           e.stopPropagation();
                           handleDuplicate(tpl);
                         }}
-                        className="p-1 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-md cursor-pointer"
+                        className="p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md cursor-pointer"
                         title="Duplicate"
                       >
                         <Copy className="h-3 w-3" />
@@ -362,7 +362,7 @@ export default function TemplatesPage() {
                           e.stopPropagation();
                           handleDelete(tpl.id);
                         }}
-                        className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-md cursor-pointer"
+                        className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md cursor-pointer"
                         title="Delete"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -374,7 +374,7 @@ export default function TemplatesPage() {
                     {tpl.variables?.map((v) => (
                       <span
                         key={v}
-                        className="px-1.5 py-0.5 rounded-sm bg-neutral-100 text-[9px] font-mono text-neutral-600"
+                        className="px-1.5 py-0.5 rounded-sm bg-neutral-100 dark:bg-neutral-800 text-[9px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700"
                       >
                         {`{{${v}}}`}
                       </span>
@@ -458,13 +458,13 @@ export default function TemplatesPage() {
             </div>
 
             {/* Interactive Draggable & Clickable Merge Tag Cheat Sheet */}
-            <div className="p-3.5 rounded-xl bg-purple-50/60 border border-purple-200/80 text-xs">
+            <div className="p-3.5 rounded-xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200/80 dark:border-indigo-900/40 text-xs transition-colors">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold text-neutral-900 flex items-center gap-1.5 text-xs">
-                  <Sparkles className="h-3.5 w-3.5 text-[#6D28D9]" />
+                <span className="font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5 text-xs">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>Merge Tag Cheat Sheet</span>
                 </span>
-                <span className="text-[10px] bg-purple-100 text-[#6D28D9] px-2 py-0.5 rounded-full font-medium">
+                <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">
                   Inserting to: {focusedField === "subject" ? "Subject Line" : activeTab === "text" ? "Plain Text Body" : "HTML Body"}
                 </span>
               </div>
@@ -574,42 +574,42 @@ export default function TemplatesPage() {
 
         {/* Right Column: Live Real-Time Preview (4 cols) */}
         <div className="lg:col-span-4 space-y-3">
-          <div className="rounded-xl border border-[#E5E5E5] bg-white shadow-xs overflow-hidden sticky top-6">
+          <div className="rounded-xl border border-[#E5E5E5] dark:border-neutral-800 bg-white dark:bg-[#121215] shadow-xs overflow-hidden sticky top-6 transition-colors">
             {/* Preview Toolbar */}
-            <div className="p-3.5 border-b border-[#F5F5F5] bg-neutral-50/70 space-y-2">
+            <div className="p-3.5 border-b border-[#F5F5F5] dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/60 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                   </span>
-                  <Eye className="h-4 w-4 text-[#6D28D9]" />
-                  <span className="text-xs font-semibold text-[#111111]">
+                  <Eye className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-xs font-semibold text-[#111111] dark:text-neutral-100">
                     Live Email Preview
                   </span>
                 </div>
 
-                <label className="flex items-center gap-1.5 text-[11px] text-[#6D28D9] font-medium cursor-pointer select-none">
+                <label className="flex items-center gap-1.5 text-[11px] text-indigo-600 dark:text-indigo-400 font-medium cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={highlightTags}
                     onChange={(e) => setHighlightTags(e.target.checked)}
-                    className="rounded text-[#6D28D9] focus:ring-[#6D28D9]"
+                    className="rounded text-indigo-600 focus:ring-indigo-600"
                   />
                   <span>Highlight Tags</span>
                 </label>
               </div>
 
               {/* View Mode Toggle (HTML vs Plain Text) */}
-              <div className="flex items-center justify-between text-[11px] pt-1 border-t border-neutral-200/50">
+              <div className="flex items-center justify-between text-[11px] pt-1 border-t border-neutral-200/50 dark:border-neutral-800">
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => setActiveTab("html")}
                     className={`px-2 py-0.5 rounded text-[10px] font-medium cursor-pointer transition ${
                       activeTab === "html"
-                        ? "bg-[#6D28D9] text-white"
-                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                        ? "bg-indigo-600 text-white font-semibold"
+                        : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                     }`}
                   >
                     HTML View
@@ -619,8 +619,8 @@ export default function TemplatesPage() {
                     onClick={() => setActiveTab("text")}
                     className={`px-2 py-0.5 rounded text-[10px] font-medium cursor-pointer transition ${
                       activeTab === "text"
-                        ? "bg-[#6D28D9] text-white"
-                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                        ? "bg-indigo-600 text-white font-semibold"
+                        : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                     }`}
                   >
                     Plain Text View
@@ -634,7 +634,7 @@ export default function TemplatesPage() {
                     const c = sampleContacts.find((x) => x.id === e.target.value);
                     if (c) setSelectedContact(c);
                   }}
-                  className="rounded border border-neutral-200 bg-white px-2 py-0.5 text-[10px] text-neutral-700 font-medium cursor-pointer"
+                  className="rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 py-0.5 text-[10px] text-neutral-700 dark:text-neutral-200 font-medium cursor-pointer"
                 >
                   {sampleContacts.map((c) => (
                     <option key={c.id} value={c.id}>

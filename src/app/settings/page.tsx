@@ -650,13 +650,13 @@ export default function SettingsPage() {
             )}
 
             {/* Table Architecture Checklist */}
-            <div className="p-4 rounded-xl border border-neutral-200 bg-neutral-50/60 space-y-2.5">
+            <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 space-y-2.5 transition-colors">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#111111] flex items-center gap-1.5">
-                  <Database className="h-3.5 w-3.5 text-[#6D28D9]" />
+                <span className="text-xs font-semibold text-[#111111] dark:text-neutral-100 flex items-center gap-1.5">
+                  <Database className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>Schema Tables Architecture (from supabase_schema.sql):</span>
                 </span>
-                <span className="text-[10px] text-neutral-500">7 Core Tables with Realtime Publication</span>
+                <span className="text-[10px] text-neutral-500 dark:text-neutral-400">7 Core Tables with Realtime Publication</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
                 {[
@@ -668,11 +668,11 @@ export default function SettingsPage() {
                   { name: "suppression_list", desc: "Bounced / unsubscribed" },
                   { name: "campaign_events", desc: "Realtime live stream" },
                 ].map((tbl) => (
-                  <div key={tbl.name} className="p-2 rounded-lg bg-white border border-neutral-200 shadow-2xs">
-                    <span className="font-mono font-semibold text-neutral-800 block text-[10px]">
+                  <div key={tbl.name} className="p-2 rounded-lg bg-white dark:bg-[#121215] border border-neutral-200 dark:border-neutral-800 shadow-2xs">
+                    <span className="font-mono font-semibold text-neutral-800 dark:text-neutral-200 block text-[10px]">
                       {tbl.name}
                     </span>
-                    <span className="text-[9px] text-neutral-500 block truncate">
+                    <span className="text-[9px] text-neutral-500 dark:text-neutral-400 block truncate">
                       {tbl.desc}
                     </span>
                   </div>
@@ -1347,12 +1347,12 @@ export default function SettingsPage() {
       </div>
 
       {/* Security Architecture Notice */}
-      <div className="rounded-xl border border-neutral-200 bg-neutral-50/70 p-5 space-y-2">
-        <div className="flex items-center gap-2 font-semibold text-xs text-[#111111]">
-          <Shield className="h-4 w-4 text-[#6D28D9]" />
+      <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/40 p-5 space-y-2 transition-colors">
+        <div className="flex items-center gap-2 font-semibold text-xs text-[#111111] dark:text-neutral-100">
+          <Shield className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           <span>Security &amp; Persistence Assurance</span>
         </div>
-        <p className="text-xs text-[#666666] leading-relaxed">
+        <p className="text-xs text-[#666666] dark:text-neutral-400 leading-relaxed">
           When you click <strong>Save</strong>, your credentials are securely persisted directly to <code>.env.local</code> on the server and loaded into the active runtime. No manual file edits are required. Secret keys are never exposed to browser client code.
         </p>
       </div>
