@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, ArrowRight, ShieldCheck, Navigation } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,8 +45,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#F5F5F5] p-4">
-      <div className="w-full max-w-md rounded-2xl border border-[#E5E5E5] bg-white p-8 shadow-xl">
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#F5F5F5] p-4 transition-colors duration-200">
+      <div className="absolute top-5 right-5">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-md rounded-2xl border border-[#E5E5E5] bg-white p-8 shadow-xl transition-colors duration-200">
         {/* Brand Header */}
         <div className="text-center">
           <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md mb-4">

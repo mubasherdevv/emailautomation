@@ -17,6 +17,7 @@ import {
   Zap,
   Navigation,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -131,25 +132,28 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
           {/* User Profile */}
           <div className="flex items-center justify-between p-2 rounded-lg hover:bg-[#F5F5F5] transition">
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="h-8 w-8 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                AD
+              <div className="h-8 w-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                OP
               </div>
               {!collapsed && (
                 <div className="truncate">
                   <div className="text-xs font-medium text-[#111111] truncate">Admin Console</div>
-                  <div className="text-[11px] text-[#666666] truncate">admin@company.com</div>
+                  <div className="text-[11px] text-[#666666] truncate">emailautomation@redvision.com</div>
                 </div>
               )}
             </div>
 
             {!collapsed && (
-              <button
-                onClick={handleLogout}
-                className="text-[#666666] hover:text-red-600 p-1.5 rounded-md hover:bg-white transition"
-                title="Sign out"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <ThemeToggle className="h-7 w-7" />
+                <button
+                  onClick={handleLogout}
+                  className="text-[#666666] hover:text-red-600 p-1.5 rounded-md hover:bg-white transition"
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
             )}
           </div>
         </div>

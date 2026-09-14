@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { Menu, Plus, RefreshCw, Radio } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 interface HeaderProps {
   title?: string;
@@ -62,6 +63,9 @@ export function Header({
             {isRealtimeConnected ? "Realtime Live" : "Adaptive Sync"}
           </span>
         </div>
+
+        {/* Dark Mode Toggle */}
+        <ThemeToggle />
 
         {/* Refresh Button */}
         {onRefresh && (
