@@ -22,6 +22,12 @@ import {
   Filter,
   Globe,
   Mail,
+  RefreshCw,
+  AlertCircle,
+  Eye,
+  Check,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 
@@ -40,6 +46,16 @@ export default function NewCampaignPage() {
   const [contactSearch, setContactSearch] = useState("");
   const [contactStatusFilter, setContactStatusFilter] = useState<"all" | "pending">("all");
 
+  // Google Sheets Verification & Live Preview State
+  const [sheetVerifying, setSheetVerifying] = useState(false);
+  const [sheetVerified, setSheetVerified] = useState<boolean | null>(null);
+  const [sheetHeaders, setSheetHeaders] = useState<string[]>([]);
+  const [sheetRows, setSheetRows] = useState<Record<string, string>[]>([]);
+  const [sheetTotalRows, setSheetTotalRows] = useState(0);
+  const [sheetEmailCol, setSheetEmailCol] = useState("Email");
+  const [sheetError, setSheetError] = useState<string | null>(null);
+  const [showSheetPreviewTable, setShowSheetPreviewTable] = useState(false);
+
   // Form State
   const [name, setName] = useState("Outreach Campaign");
   const [sheetId, setSheetId] = useState("");
@@ -52,6 +68,48 @@ export default function NewCampaignPage() {
   const [batchSize, setBatchSize] = useState(5);
   const [delaySeconds, setDelaySeconds] = useState(2);
   const [primaryRecipientField, setPrimaryRecipientField] = useState<"email" | "personal_email">("email");
+
+  const handleVerifySheet = async (customId?: string, customName?: string) => {
+    const targetId = customId || sheetId;
+    const targetName = customName || sheetName;
+    if (!targetId) {
+      toast("Missing Sheet ID", "Please enter a Google Sheet ID or URL", "error");
+      return;
+    }
+
+    setSheetVerifying(true);
+    setSheetError(null);
+    try {
+      const res = await fetch("/api/settings/verify-sheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheetId: targetId, sheetName: targetName }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to verify sheet");
+      }
+
+      setSheetVerified(true);
+      setSheetHeaders(data.headers || []);
+      setSheetRows(data.rows || []);
+      const count = Number(data.totalRowsCount || data.rows?.length || 0);
+      setSheetTotalRows(count);
+      setSheetEmailCol(data.emailColumn || "Email");
+      setShowSheetPreviewTable(true);
+      if (count > 0) {
+        setSendLimit(count);
+      }
+      toast("Sheet Verified", `Connected! Found ${count} lead rows in ${targetName}`, "success");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Verification failed";
+      setSheetError(msg);
+      setSheetVerified(false);
+      toast("Verification Error", msg, "error");
+    } finally {
+      setSheetVerifying(false);
+    }
+  };
 
   useEffect(() => {
     // Load available settings & templates
@@ -555,37 +613,168 @@ export default function NewCampaignPage() {
 
           {/* GOOGLE SHEETS SOURCE */}
           {sourceType === "sheets" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#111111] mb-1.5">
-                  Google Sheet ID *
-                </label>
-                <input
-                  type="text"
-                  required={sourceType === "sheets"}
-                  value={sheetId}
-                  onChange={(e) => setSheetId(e.target.value)}
-                  placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-                  className="w-full rounded-lg border border-[#E5E5E5] px-3.5 py-2 text-xs text-[#111111] font-mono focus:border-[#6D28D9] focus:outline-hidden"
-                />
-                <span className="text-[10px] text-[#666666] mt-1 block">
-                  Extracted from your spreadsheet URL: /d/{"<ID>"}/edit
-                </span>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#111111] dark:text-neutral-200 mb-1.5">
+                    Google Sheet ID or Full URL *
+                  </label>
+                  <input
+                    type="text"
+                    required={sourceType === "sheets"}
+                    value={sheetId}
+                    onChange={(e) => {
+                      setSheetId(e.target.value);
+                      setSheetVerified(null);
+                    }}
+                    placeholder="e.g. 11EOLANkddwKPMiHCL9aQOO-1FrtzgSgxSy_ZZAL4pfM"
+                    className="w-full rounded-lg border border-[#E5E5E5] dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3.5 py-2 text-xs text-[#111111] dark:text-neutral-100 font-mono focus:border-[#6D28D9] focus:outline-hidden"
+                  />
+                  <span className="text-[10px] text-[#666666] dark:text-neutral-400 mt-1 block">
+                    Spreadsheet URL ya ID paste karein (e.g. docs.google.com/spreadsheets/d/{"<ID>"}/edit)
+                  </span>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-[#111111] dark:text-neutral-200">
+                      Sheet / Tab Name *
+                    </label>
+                    <span className="text-[10px] text-neutral-400">Default: Sheet1</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      required={sourceType === "sheets"}
+                      value={sheetName}
+                      onChange={(e) => {
+                        setSheetName(e.target.value);
+                        setSheetVerified(null);
+                      }}
+                      placeholder="Sheet1"
+                      className="flex-1 rounded-lg border border-[#E5E5E5] dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3.5 py-2 text-xs text-[#111111] dark:text-neutral-100 focus:border-[#6D28D9] focus:outline-hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleVerifySheet()}
+                      disabled={sheetVerifying || !sheetId}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition disabled:opacity-50 cursor-pointer shadow-xs whitespace-nowrap"
+                    >
+                      {sheetVerifying ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          <span>Verifying...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Verify & Preview</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#111111] mb-1.5">
-                  Sheet / Tab Name *
-                </label>
-                <input
-                  type="text"
-                  required={sourceType === "sheets"}
-                  value={sheetName}
-                  onChange={(e) => setSheetName(e.target.value)}
-                  placeholder="Sheet1"
-                  className="w-full rounded-lg border border-[#E5E5E5] px-3.5 py-2 text-xs text-[#111111] focus:border-[#6D28D9] focus:outline-hidden"
-                />
-              </div>
+              {/* Error Alert if Verification Failed */}
+              {sheetError && (
+                <div className="flex items-start gap-2.5 p-3 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
+                  <div className="space-y-1">
+                    <p className="font-semibold">Google Sheet Verification Error</p>
+                    <p className="text-[11px] opacity-90">{sheetError}</p>
+                    <p className="text-[11px] text-rose-600 dark:text-rose-400">
+                      Tip: Make sure your Google Sheet sharing is set to <strong>"Anyone with the link can view"</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Verified Status & Live Preview Table */}
+              {sheetVerified && (
+                <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-emerald-200/60 dark:border-emerald-900/40">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1 rounded-full bg-emerald-500 text-white">
+                        <Check className="h-3.5 w-3.5" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
+                          Sheet Connected: {sheetTotalRows} Active Leads Found!
+                        </div>
+                        <div className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                          Recipient Column: <span className="font-mono font-semibold">{sheetEmailCol}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowSheetPreviewTable((prev) => !prev)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-white dark:bg-neutral-800 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-50 dark:hover:bg-neutral-700 transition cursor-pointer"
+                      >
+                        <Eye className="h-3 w-3" />
+                        <span>{showSheetPreviewTable ? "Hide Table Preview" : "View Live Leads Table"}</span>
+                        {showSheetPreviewTable ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expandable Live Leads Table */}
+                  {showSheetPreviewTable && sheetRows.length > 0 && (
+                    <div className="border border-emerald-200 dark:border-emerald-900/40 rounded-xl overflow-hidden max-h-56 overflow-y-auto bg-white dark:bg-neutral-900 text-xs shadow-2xs">
+                      <table className="w-full text-left">
+                        <thead className="bg-emerald-50/80 dark:bg-neutral-800 text-emerald-900 dark:text-emerald-300 border-b border-emerald-200 dark:border-neutral-700 sticky top-0 font-semibold">
+                          <tr>
+                            <th className="w-10 px-3 py-2 text-center text-[10px] text-neutral-400">#</th>
+                            {sheetHeaders.slice(0, 6).map((h, i) => (
+                              <th key={i} className="px-3 py-2 text-xs">
+                                {h}
+                                {h.toLowerCase().includes("email") && (
+                                  <span className="ml-1 text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded">
+                                    Recipient
+                                  </span>
+                                )}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                          {sheetRows.slice(0, 20).map((row, idx) => (
+                            <tr key={idx} className="hover:bg-emerald-50/30 dark:hover:bg-neutral-800/40">
+                              <td className="px-3 py-2 text-center font-mono text-[10px] text-neutral-400">
+                                {idx + 1}
+                              </td>
+                              {sheetHeaders.slice(0, 6).map((h, i) => {
+                                const val = row[h] || "";
+                                const isEmail = h.toLowerCase().includes("email") || val.includes("@");
+                                return (
+                                  <td
+                                    key={i}
+                                    className={`px-3 py-2 truncate max-w-[180px] ${
+                                      isEmail
+                                        ? "font-mono font-medium text-purple-600 dark:text-purple-400"
+                                        : "text-neutral-700 dark:text-neutral-300"
+                                    }`}
+                                  >
+                                    {val || "—"}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {sheetTotalRows > 20 && (
+                        <div className="p-2 text-center text-[10px] text-neutral-500 bg-neutral-50 dark:bg-neutral-800/50 border-t border-neutral-100 dark:border-neutral-800">
+                          Showing first 20 rows of {sheetTotalRows} total leads from sheet
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
