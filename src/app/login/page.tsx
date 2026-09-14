@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Zap, Lock, Mail, ArrowRight, ShieldCheck } from "lucide-react";
+import { Lock, Mail, ArrowRight, ShieldCheck, Navigation } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 
 export default function LoginPage() {
@@ -48,14 +48,14 @@ export default function LoginPage() {
       <div className="w-full max-w-md rounded-2xl border border-[#E5E5E5] bg-white p-8 shadow-xl">
         {/* Brand Header */}
         <div className="text-center">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#6D28D9] text-white shadow-md mb-4">
-            <Zap className="h-6 w-6" />
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md mb-4">
+            <Navigation className="h-6 w-6 rotate-45" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[#111111]">
-            VoltBulk Admin
+            OutreachPilot Admin
           </h1>
           <p className="mt-1 text-xs text-[#666666]">
-            Secure orchestration &amp; live monitoring console
+            Secure cold email orchestration &amp; live monitoring console
           </p>
         </div>
 

@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Sparkles,
   Zap,
+  Navigation,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -66,15 +67,15 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
         <div>
           <div className="flex h-16 items-center justify-between px-5 border-b border-[#F5F5F5]">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#6D28D9] text-white shadow-xs">
-                <Zap className="h-5 w-5" />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm">
+                <Navigation className="h-5 w-5 rotate-45" />
               </div>
               {!collapsed && (
                 <div className="flex flex-col">
                   <span className="font-semibold text-sm tracking-tight text-[#111111] flex items-center gap-1.5">
-                    VoltBulk <span className="text-[10px] bg-purple-100 text-[#6D28D9] font-medium px-1.5 py-0.5 rounded-sm">PRO</span>
+                    OutreachPilot <span className="text-[10px] bg-indigo-100 text-indigo-700 font-medium px-1.5 py-0.5 rounded-sm">PRO</span>
                   </span>
-                  <span className="text-[11px] text-[#666666] truncate">Campaign Orchestration</span>
+                  <span className="text-[11px] text-[#666666] truncate">Campaign Automation</span>
                 </div>
               )}
             </div>

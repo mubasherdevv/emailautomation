@@ -4,8 +4,8 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { AgentationProvider } from "@/components/dev/AgentationProvider";
 
 export const metadata: Metadata = {
-  title: "VoltBulk | Production Bulk Email Admin Dashboard",
-  description: "Linear & Stripe-style Bulk Email Campaign Management Platform with n8n, Resend, and Supabase",
+  title: "OutreachPilot | Production Cold Email & Campaign Automation",
+  description: "High-Performance Cold Outreach & Bulk Email Campaign Management Platform",
 };
 
 export default function RootLayout({

@@ -1,5 +1,5 @@
-# ⚡ Modern Bulk Email Automation Engine
-> **High-Performance n8n & Next.js Cold Outreach System with Smart Deduplication & Anti-Spam Throttling**
+# ⚡ OutreachPilot — High-Performance Cold Email Automation Engine
+> **Next.js & n8n Powered Cold Outreach Platform with Smart Deduplication & Anti-Spam Throttling**
 
 ---
 
