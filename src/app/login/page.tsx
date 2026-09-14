@@ -8,8 +8,8 @@ import { useToast } from "@/components/ui/Toast";
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState("admin@company.com");
-  const [password, setPassword] = useState("AdminSecurePassword2026!");
+  const [email, setEmail] = useState("emailautomation@redvision.com");
+  const [password, setPassword] = useState("redvision123");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,14 +60,14 @@ export default function LoginPage() {
         </div>
 
         {/* Demo Credentials Alert */}
-        <div className="mt-6 rounded-lg bg-purple-50/70 border border-purple-100 p-3 text-[11px] text-[#666666]">
-          <div className="flex items-center gap-1.5 font-semibold text-[#6D28D9] mb-1">
+        <div className="mt-6 rounded-lg bg-indigo-50/70 border border-indigo-100 p-3 text-[11px] text-[#666666]">
+          <div className="flex items-center gap-1.5 font-semibold text-indigo-700 mb-1">
             <ShieldCheck className="h-3.5 w-3.5" />
             <span>Admin Authentication Initialized</span>
           </div>
           <div className="font-mono text-neutral-800 space-y-0.5">
-            <div>Email: <span className="font-semibold">admin@company.com</span></div>
-            <div>Pass: <span className="font-semibold">AdminSecurePassword2026!</span></div>
+            <div>Email: <span className="font-semibold">emailautomation@redvision.com</span></div>
+            <div>Pass: <span className="font-semibold">redvision123</span></div>
           </div>
         </div>
 
