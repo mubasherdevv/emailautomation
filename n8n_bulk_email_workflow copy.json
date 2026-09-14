@@ -1,0 +1,281 @@
+{
+  "name": "Production Bulk Email Campaign Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bulk-email/start",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 200],
+      "id": "webhook-start",
+      "name": "Start Campaign Webhook",
+      "webhookId": "bulk-email-start"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.campaign_events (campaign_id, event_type, message, metadata) VALUES ('{{ $('Start Campaign Webhook').first().json.body.campaignId }}', 'campaign_started', 'Campaign automation initialized by n8n engine', '{\"sendLimit\": {{ $('Start Campaign Webhook').first().json.body.sendLimit || 100 }}, \"batchSize\": {{ $('Start Campaign Webhook').first().json.body.batchSize || 5 }}}'::jsonb);"
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [300, 200],
+      "id": "event-campaign-started",
+      "name": "Log Event: Campaign Started"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": "={{ $('Start Campaign Webhook').first().json.body.sheetId }}",
+        "range": "={{ $('Start Campaign Webhook').first().json.body.sheetName || 'Sheet1' }}!A:Z",
+        "options": {
+          "headerRow": 1
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [560, 200],
+      "id": "read-google-sheets",
+      "name": "Fetch Leads from Google Sheets"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalization, Field Selection, and Duplicate Tagging\nconst body = $('Start Campaign Webhook').first().json.body;\nconst items = $input.all();\nconst sendLimit = Number(body.sendLimit) || 100;\nconst usePersonal = body.primaryRecipientField === 'personal_email';\n\nconst outputList = [];\nconst seenEmails = new Set();\nlet validCount = 0;\n\nfor (const item of items) {\n  const row = item.json;\n  let targetEmail = usePersonal && row['Personal Email'] ? String(row['Personal Email']) : String(row['Email'] || row['email'] || row['Email Address'] || row['email_address'] || '');\n  targetEmail = targetEmail.trim().toLowerCase();\n  \n  if (!targetEmail || !targetEmail.includes('@')) {\n    continue;\n  }\n  \n  const isDuplicate = seenEmails.has(targetEmail);\n  if (!isDuplicate) {\n    seenEmails.add(targetEmail);\n    validCount++;\n  }\n  \n  outputList.push({\n    json: {\n      campaignId: body.campaignId,\n      recipientEmail: targetEmail,\n      firstName: row['First Name'] || row['firstName'] || row['Name'] || '',\n      lastName: row['Last Name'] || row['lastName'] || '',\n      address: row['Address'] || row['Company'] || '',\n      contact: row['Contact'] || row['Phone'] || '',\n      website: row['Website'] || '',\n      subject: body.subject,\n      fromName: body.fromName,\n      fromEmail: body.fromEmail,\n      htmlBody: body.htmlBody,\n      textBody: body.textBody,\n      isDuplicate: isDuplicate\n    }\n  });\n  \n  if (validCount >= sendLimit && !isDuplicate) break;\n}\n\nreturn outputList;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [820, 200],
+      "id": "normalize-and-limit",
+      "name": "Normalize & Tag Duplicates"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.campaign_events (campaign_id, event_type, message, metadata) VALUES ('{{ $('Start Campaign Webhook').first().json.body.campaignId }}', 'leads_loaded', 'Found and loaded ' || {{ $input.all().length }} || ' leads from Google Sheets.', '{\"total\": {{ $input.all().length }}, \"duplicates\": {{ $input.all().filter(x => x.json.isDuplicate).length }}}'::jsonb);"
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1080, 200],
+      "id": "event-leads-loaded",
+      "name": "Log Event: Leads Loaded"
+    },
+    {
+      "parameters": {
+        "batchSize": "={{ $('Start Campaign Webhook').first().json.body.batchSize || 5 }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1340, 200],
+      "id": "batch-splitter",
+      "name": "Split into Batches"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT status FROM public.campaigns WHERE id = '{{ $('Start Campaign Webhook').first().json.body.campaignId }}' LIMIT 1;"
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1580, 200],
+      "id": "check-campaign-status",
+      "name": "Check Live Campaign Status"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "running"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1820, 200],
+      "id": "if-still-running",
+      "name": "Is Status Still Running?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $('Split into Batches').first().json.isDuplicate }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2060, 200],
+      "id": "if-is-duplicate",
+      "name": "Is Duplicate Lead?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.email_logs (campaign_id, email, status, error, created_at)\nVALUES (\n  '{{ $('Split into Batches').first().json.campaignId }}',\n  '{{ $('Split into Batches').first().json.recipientEmail }}',\n  'skipped',\n  'Skipped: Duplicate email in Google Sheet',\n  NOW()\n);\n\nINSERT INTO public.campaign_events (campaign_id, event_type, email, message)\nVALUES (\n  '{{ $('Split into Batches').first().json.campaignId }}',\n  'email_skipped',\n  '{{ $('Split into Batches').first().json.recipientEmail }}',\n  'Skipped duplicate lead: ' || '{{ $('Split into Batches').first().json.recipientEmail }}'\n);"
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2320, 80],
+      "id": "log-skipped-duplicate",
+      "name": "Log Skipped Duplicate"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Split into Batches').first().json.fromEmail || 'ben@redvisionexpert.com' }}",
+        "toEmail": "={{ $('Split into Batches').first().json.recipientEmail }}",
+        "subject": "={{ $('Split into Batches').first().json.subject }}",
+        "html": "={{ $('Split into Batches').first().json.htmlBody || '<p>Hi ' + ($('Split into Batches').first().json.firstName || 'there') + ', hope this email finds you well.</p>' }}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2320, 320],
+      "id": "send-smtp-email",
+      "name": "Send via SMTP"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.email_logs (campaign_id, email, status, sent_at, created_at)\nVALUES (\n  '{{ $('Split into Batches').first().json.campaignId }}',\n  '{{ $('Split into Batches').first().json.recipientEmail }}',\n  'sent',\n  NOW(),\n  NOW()\n);\n\nUPDATE public.campaigns\nSET sent_count = sent_count + 1,\n    updated_at = NOW()\nWHERE id = '{{ $('Split into Batches').first().json.campaignId }}';\n\nINSERT INTO public.campaign_events (campaign_id, event_type, email, message)\nVALUES (\n  '{{ $('Split into Batches').first().json.campaignId }}',\n  'email_sent',\n  '{{ $('Split into Batches').first().json.recipientEmail }}',\n  'Email delivered to: ' || '{{ $('Split into Batches').first().json.recipientEmail }}'\n);"
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2560, 320],
+      "id": "log-sent-email",
+      "name": "Log Sent Email"
+    },
+    {
+      "parameters": {
+        "amount": "={{ $('Start Campaign Webhook').first().json.body.delaySeconds || 2 }}",
+        "unit": "seconds"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2800, 200],
+      "id": "delay-batch",
+      "name": "Delay Between Batches"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.campaigns\nSET status = 'completed',\n    completed_at = NOW(),\n    pending_count = 0,\n    total_count = COALESCE((SELECT COUNT(*) FROM public.email_logs WHERE campaign_id = '{{ $('Start Campaign Webhook').first().json.body.campaignId }}'), sent_count)\nWHERE id = '{{ $('Start Campaign Webhook').first().json.body.campaignId }}';\n\nINSERT INTO public.campaign_events (campaign_id, event_type, message, metadata)\nVALUES (\n  '{{ $('Start Campaign Webhook').first().json.body.campaignId }}',\n  'campaign_completed',\n  'Automation finished! All leads processed and duplicates logged.',\n  '{\"status\": \"completed\"}'::jsonb\n);"
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1580, 420],
+      "id": "mark-campaign-completed",
+      "name": "Mark Campaign Completed"
+    }
+  ],
+  "connections": {
+    "Start Campaign Webhook": {
+      "main": [
+        [
+          { "node": "Log Event: Campaign Started", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Log Event: Campaign Started": {
+      "main": [
+        [
+          { "node": "Fetch Leads from Google Sheets", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fetch Leads from Google Sheets": {
+      "main": [
+        [
+          { "node": "Normalize & Tag Duplicates", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Normalize & Tag Duplicates": {
+      "main": [
+        [
+          { "node": "Log Event: Leads Loaded", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Log Event: Leads Loaded": {
+      "main": [
+        [
+          { "node": "Split into Batches", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Split into Batches": {
+      "main": [
+        [
+          { "node": "Check Live Campaign Status", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Mark Campaign Completed", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check Live Campaign Status": {
+      "main": [
+        [
+          { "node": "Is Status Still Running?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Is Status Still Running?": {
+      "main": [
+        [
+          { "node": "Is Duplicate Lead?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Is Duplicate Lead?": {
+      "main": [
+        [
+          { "node": "Log Skipped Duplicate", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Send via SMTP", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Log Skipped Duplicate": {
+      "main": [
+        [
+          { "node": "Delay Between Batches", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Send via SMTP": {
+      "main": [
+        [
+          { "node": "Log Sent Email", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Log Sent Email": {
+      "main": [
+        [
+          { "node": "Delay Between Batches", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Delay Between Batches": {
+      "main": [
+        [
+          { "node": "Split into Batches", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  }
+}
