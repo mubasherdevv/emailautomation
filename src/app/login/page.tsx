@@ -45,7 +45,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#F5F5F5] p-4 transition-colors duration-200">
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-transparent p-4 transition-colors duration-200">
       <div className="absolute top-5 right-5">
         <ThemeToggle />
       </div>

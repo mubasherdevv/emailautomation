@@ -24,7 +24,7 @@ export function AdminShell({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] flex flex-col md:flex-row">
+    <div className="min-h-screen bg-transparent flex flex-col md:flex-row">
       <Sidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0">
