@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { StatCards } from "@/components/dashboard/StatCards";
+import { DailyQuotaMeter } from "@/components/dashboard/DailyQuotaMeter";
 import { MainCampaignCard } from "@/components/dashboard/MainCampaignCard";
 import { LiveSendingMonitor } from "@/components/dashboard/LiveSendingMonitor";
 import { LiveActivityFeed } from "@/components/dashboard/LiveActivityFeed";
@@ -81,7 +82,10 @@ export default function DashboardPage() {
         totalSent={totalSent}
       />
 
-      {/* 2. Main Active Campaign Overview */}
+      {/* 2. Daily Quota & Anti-Spam Health Meter */}
+      <DailyQuotaMeter sentToday={totalSent} />
+
+      {/* 3. Main Active Campaign Overview */}
       <MainCampaignCard campaign={campaign} onAction={refetch} />
 
       {/* 3. Live Sending Monitor & Live Activity Feed */}
