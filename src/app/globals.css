@@ -69,10 +69,12 @@ html.dark .bg-\[\#ffffff\] {
 
 html.dark .bg-\[\#FDFDFD\],
 html.dark .bg-\[\#F5F5F5\],
+html.dark [class*="bg-[#F5F5F5]"],
+html.dark [class*="bg-[#FDFDFD]"],
 html.dark .bg-neutral-50,
 html.dark .bg-slate-50,
 html.dark .bg-gray-50 {
-  background-color: #09090b !important;
+  background-color: #121215 !important;
 }
 
 html.dark .bg-white\/90,
@@ -89,6 +91,8 @@ html.dark aside {
 /* Borders */
 html.dark .border-\[\#E5E5E5\],
 html.dark .border-\[\#F5F5F5\],
+html.dark [class*="border-[#E5E5E5]"],
+html.dark [class*="border-[#F5F5F5]"],
 html.dark .border-neutral-200,
 html.dark .border-neutral-100,
 html.dark .border-slate-200,

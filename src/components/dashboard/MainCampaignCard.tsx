@@ -29,15 +29,15 @@ export function MainCampaignCard({ campaign, onAction }: MainCampaignCardProps) 
 
   if (!campaign) {
     return (
-      <div className="rounded-xl border border-dashed border-[#E5E5E5] bg-[#F5F5F5]/40 p-8 text-center">
-        <Send className="mx-auto h-8 w-8 text-[#666666]" />
-        <h3 className="mt-3 text-sm font-semibold text-[#111111]">No Active Campaigns</h3>
-        <p className="mt-1 text-xs text-[#666666]">
+      <div className="rounded-xl border border-dashed border-[#E5E5E5] dark:border-neutral-800 bg-[#F5F5F5]/40 dark:bg-neutral-900/40 p-8 text-center transition-colors">
+        <Send className="mx-auto h-8 w-8 text-[#666666] dark:text-neutral-400" />
+        <h3 className="mt-3 text-sm font-semibold text-[#111111] dark:text-neutral-100">No Active Campaigns</h3>
+        <p className="mt-1 text-xs text-[#666666] dark:text-neutral-400">
           Create and launch an outreach campaign to monitor real-time sending.
         </p>
         <Link
           href="/campaigns/new"
-          className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#6D28D9] text-white text-xs font-semibold hover:bg-[#5b21b6] transition shadow-xs"
+          className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition shadow-xs"
         >
           Create First Campaign
         </Link>
