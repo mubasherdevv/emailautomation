@@ -11,7 +11,6 @@ export function DailyQuotaMeter({ sentToday = 0 }: DailyQuotaMeterProps) {
   const [dailyLimit, setDailyLimit] = useState(500);
   const [isEditing, setIsEditing] = useState(false);
   const [tempLimit, setTempLimit] = useState("500");
-  const [timeUntilReset, setTimeUntilReset] = useState("");
 
   // Load persisted daily limit if exists
   useEffect(() => {
@@ -23,28 +22,6 @@ export function DailyQuotaMeter({ sentToday = 0 }: DailyQuotaMeterProps) {
         setTempLimit(String(parsed));
       }
     }
-  }, []);
-
-  // Midnight UTC countdown ticker
-  useEffect(() => {
-    const updateCountdown = () => {
-      const now = new Date();
-      const tomorrow = new Date(now);
-      tomorrow.setUTCHours(24, 0, 0, 0);
-      const diff = tomorrow.getTime() - now.getTime();
-
-      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const minutes = Math.floor((diff / (1000 * 60)) % 60);
-      const seconds = Math.floor((diff / 1000) % 60);
-
-      setTimeUntilReset(
-        `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`
-      );
-    };
-
-    updateCountdown();
-    const timer = setInterval(updateCountdown, 1000);
-    return () => clearInterval(timer);
   }, []);
 
   const handleSaveLimit = (e: React.FormEvent) => {
@@ -153,7 +130,7 @@ export function DailyQuotaMeter({ sentToday = 0 }: DailyQuotaMeterProps) {
       )}
 
       {/* Main Meter Grid */}
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
         {/* Metric 1: Sent Today */}
         <div className="p-3.5 rounded-lg bg-neutral-50/50 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800/80">
           <span className="text-[11px] font-medium text-[#666666] dark:text-neutral-400 block">
@@ -188,23 +165,7 @@ export function DailyQuotaMeter({ sentToday = 0 }: DailyQuotaMeterProps) {
           </span>
         </div>
 
-        {/* Metric 3: Reset Timer */}
-        <div className="p-3.5 rounded-lg bg-neutral-50/50 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800/80">
-          <span className="text-[11px] font-medium text-[#666666] dark:text-neutral-400 flex items-center gap-1">
-            <Clock className="h-3 w-3 text-neutral-400" />
-            <span>Quota Refresh Cycle</span>
-          </span>
-          <div className="mt-1">
-            <span className="text-xl font-bold font-mono text-[#111111] dark:text-neutral-100">
-              {timeUntilReset || "00h 00m 00s"}
-            </span>
-          </div>
-          <span className="text-[10px] text-neutral-500 mt-0.5 block">
-            Resets at midnight UTC
-          </span>
-        </div>
-
-        {/* Metric 4: Health Verdict */}
+        {/* Metric 3: Health Verdict */}
         <div className="p-3.5 rounded-lg bg-neutral-50/50 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800/80 flex flex-col justify-between">
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="h-4 w-4 text-emerald-500" />
