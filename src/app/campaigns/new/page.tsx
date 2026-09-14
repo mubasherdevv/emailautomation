@@ -90,12 +90,25 @@ export default function NewCampaignPage() {
         throw new Error(data.error || "Failed to verify sheet");
       }
 
+      if (data.requiresShare || data.isLiveFetched === false) {
+        setSheetError(
+          data.message ||
+            "Google Sheet is currently Restricted. Open Google Sheet, click Share (top right), and set General access to 'Anyone with the link can view' so the live preview table can read the data."
+        );
+        setSheetVerified(false);
+        toast("Sheet is Restricted", "Set Google Sheet sharing to 'Anyone with the link can view' to preview leads", "warning");
+        return;
+      }
+
+      const resolvedHeaders: string[] = data.headers || data.detectedHeaders || [];
+      const resolvedRows: Record<string, string>[] = data.rows || data.allRows || data.sampleRows || [];
+      const count = Number(data.totalRowsCount || resolvedRows.length || 0);
+
       setSheetVerified(true);
-      setSheetHeaders(data.headers || []);
-      setSheetRows(data.rows || []);
-      const count = Number(data.totalRowsCount || data.rows?.length || 0);
+      setSheetHeaders(resolvedHeaders);
+      setSheetRows(resolvedRows);
       setSheetTotalRows(count);
-      setSheetEmailCol(data.emailColumn || "Email");
+      setSheetEmailCol(data.emailColumn || resolvedHeaders.find((h) => h.toLowerCase().includes("email")) || "Email");
       setShowSheetPreviewTable(true);
       if (count > 0) {
         setSendLimit(count);
@@ -722,50 +735,61 @@ export default function NewCampaignPage() {
                   </div>
 
                   {/* Expandable Live Leads Table */}
-                  {showSheetPreviewTable && sheetRows.length > 0 && (
-                    <div className="border border-emerald-200 dark:border-emerald-900/40 rounded-xl overflow-hidden max-h-56 overflow-y-auto bg-white dark:bg-neutral-900 text-xs shadow-2xs">
-                      <table className="w-full text-left">
-                        <thead className="bg-emerald-50/80 dark:bg-neutral-800 text-emerald-900 dark:text-emerald-300 border-b border-emerald-200 dark:border-neutral-700 sticky top-0 font-semibold">
-                          <tr>
-                            <th className="w-10 px-3 py-2 text-center text-[10px] text-neutral-400">#</th>
-                            {sheetHeaders.slice(0, 6).map((h, i) => (
-                              <th key={i} className="px-3 py-2 text-xs">
-                                {h}
-                                {h.toLowerCase().includes("email") && (
-                                  <span className="ml-1 text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded">
-                                    Recipient
-                                  </span>
-                                )}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                          {sheetRows.slice(0, 20).map((row, idx) => (
-                            <tr key={idx} className="hover:bg-emerald-50/30 dark:hover:bg-neutral-800/40">
-                              <td className="px-3 py-2 text-center font-mono text-[10px] text-neutral-400">
-                                {idx + 1}
-                              </td>
-                              {sheetHeaders.slice(0, 6).map((h, i) => {
-                                const val = row[h] || "";
-                                const isEmail = h.toLowerCase().includes("email") || val.includes("@");
-                                return (
-                                  <td
-                                    key={i}
-                                    className={`px-3 py-2 truncate max-w-[180px] ${
-                                      isEmail
-                                        ? "font-mono font-medium text-purple-600 dark:text-purple-400"
-                                        : "text-neutral-700 dark:text-neutral-300"
-                                    }`}
-                                  >
-                                    {val || "—"}
-                                  </td>
-                                );
-                              })}
+                  {showSheetPreviewTable && (
+                    <div className="border border-emerald-200 dark:border-emerald-900/40 rounded-xl overflow-hidden max-h-64 overflow-y-auto bg-white dark:bg-neutral-900 text-xs shadow-2xs">
+                      {sheetRows.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-neutral-500">
+                          Sheet connected, but no lead rows were found. Check your sheet tab content.
+                        </div>
+                      ) : (
+                        <table className="w-full text-left">
+                          <thead className="bg-emerald-50/80 dark:bg-neutral-800 text-emerald-900 dark:text-emerald-300 border-b border-emerald-200 dark:border-neutral-700 sticky top-0 font-semibold">
+                            <tr>
+                              <th className="w-10 px-3 py-2 text-center text-[10px] text-neutral-400">#</th>
+                              {(sheetHeaders.length > 0 ? sheetHeaders : Object.keys(sheetRows[0] || {}))
+                                .slice(0, 7)
+                                .map((h, i) => (
+                                  <th key={i} className="px-3 py-2 text-xs">
+                                    {h}
+                                    {h.toLowerCase().includes("email") && (
+                                      <span className="ml-1 text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded">
+                                        Recipient
+                                      </span>
+                                    )}
+                                  </th>
+                                ))}
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                            {sheetRows.slice(0, 20).map((row, idx) => {
+                              const cols = sheetHeaders.length > 0 ? sheetHeaders : Object.keys(row);
+                              return (
+                                <tr key={idx} className="hover:bg-emerald-50/30 dark:hover:bg-neutral-800/40">
+                                  <td className="px-3 py-2 text-center font-mono text-[10px] text-neutral-400">
+                                    {idx + 1}
+                                  </td>
+                                  {cols.slice(0, 7).map((h, i) => {
+                                    const val = row[h] || "";
+                                    const isEmail = h.toLowerCase().includes("email") || (typeof val === "string" && val.includes("@"));
+                                    return (
+                                      <td
+                                        key={i}
+                                        className={`px-3 py-2 truncate max-w-[180px] ${
+                                          isEmail
+                                            ? "font-mono font-medium text-purple-600 dark:text-purple-400"
+                                            : "text-neutral-700 dark:text-neutral-300"
+                                        }`}
+                                      >
+                                        {val || "—"}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
                       {sheetTotalRows > 20 && (
                         <div className="p-2 text-center text-[10px] text-neutral-500 bg-neutral-50 dark:bg-neutral-800/50 border-t border-neutral-100 dark:border-neutral-800">
                           Showing first 20 rows of {sheetTotalRows} total leads from sheet

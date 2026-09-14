@@ -128,6 +128,11 @@ export async function POST(request: Request) {
     }
 
     if (isLiveFetched && headers.length > 0) {
+      const detectedEmailCol =
+        headers.find((h) => h.toLowerCase().includes("email")) ||
+        headers.find((h) => h.toLowerCase().includes("mail")) ||
+        "Email";
+
       return NextResponse.json({
         success: true,
         isLiveFetched: true,
@@ -135,9 +140,12 @@ export async function POST(request: Request) {
         tabName,
         accessMode: "Live Direct Google CSV Feed",
         totalRowsCount,
+        headers,
         detectedHeaders: headers,
-        sampleRows: allRows.slice(0, 15),
+        rows: allRows,
+        sampleRows: allRows.slice(0, 20),
         allRows,
+        emailColumn: detectedEmailCol,
         message: `Successfully connected to Google Sheet! Fetched ${totalRowsCount} live rows across ${headers.length} columns.`,
       });
     }
