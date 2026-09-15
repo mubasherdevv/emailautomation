@@ -32,7 +32,7 @@ export default function CampaignsListPage() {
   const fetchCampaigns = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/campaigns");
+      const res = await fetch("/api/campaigns", { cache: "no-store" });
       if (res.ok) {
         const d = await res.json();
         setCampaigns(d.campaigns || []);
@@ -47,6 +47,23 @@ export default function CampaignsListPage() {
   useEffect(() => {
     fetchCampaigns();
   }, []);
+
+  // Auto-refresh every 5s while any campaign is running/sending so n8n updates show live
+  useEffect(() => {
+    const hasActive = campaigns.some(
+      (c) => c.status === "running" || c.status === "sending"
+    );
+    if (!hasActive) return;
+    const interval = setInterval(() => {
+      fetch("/api/campaigns", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.campaigns) setCampaigns(d.campaigns);
+        })
+        .catch(() => {});
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [campaigns]);
 
   const handleAction = async (id: string, action: "start" | "pause" | "resume" | "stop" | "delete" | "restart") => {
     try {
@@ -171,10 +188,14 @@ export default function CampaignsListPage() {
                 </tr>
               ) : filtered.length > 0 ? (
                 filtered.map((c) => {
-                  const progress = Math.min(
-                    100,
-                    Math.max(0, ((c.sent_count || 0) / (c.total_count || 1)) * 100)
-                  );
+                  const denominator = Math.max(
+                    c.total_count || 0,
+                    c.send_limit || 1
+                  ) || 1;
+                  const progress =
+                    c.status === "completed" || c.status === "stopped"
+                      ? 100
+                      : Math.min(100, Math.max(0, ((c.sent_count || 0) / denominator) * 100));
 
                   return (
                     <tr key={c.id} className="hover:bg-neutral-50/50 transition-colors">

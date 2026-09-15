@@ -26,16 +26,24 @@ export async function GET() {
       }
     }
 
-    // Merge Supabase and in-memory campaigns by id so no campaign is ever missing
+    // Merge Supabase and in-memory campaigns by id so no campaign is ever missing.
+    // Supabase is the source of truth for live fields (status, counts, timestamps).
+    // In-memory only supplements fields that aren't in Supabase (source_type, selected_contact_ids).
     const map = new Map<string, any>();
     for (const c of store.campaigns) {
       if (c.id) map.set(c.id, c);
     }
     for (const c of supabaseCampaigns) {
       if (c.id) {
-        // Keep in-memory enrichment like source_type if present
         const local = map.get(c.id);
-        map.set(c.id, { ...c, ...(local || {}) });
+        // Supabase wins for all live/status fields; local only fills in memory-only fields
+        map.set(c.id, {
+          // Start with local for non-DB fields
+          source_type: local?.source_type || "sheets",
+          selected_contact_ids: local?.selected_contact_ids || [],
+          // Supabase data overrides everything else
+          ...c,
+        });
       }
     }
 
