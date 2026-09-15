@@ -51,7 +51,7 @@ export default function CampaignsListPage() {
   // Auto-refresh every 5s while any campaign is running/sending so n8n updates show live
   useEffect(() => {
     const hasActive = campaigns.some(
-      (c) => c.status === "running" || c.status === "sending"
+      (c) => c.status === "running"
     );
     if (!hasActive) return;
     const interval = setInterval(() => {
