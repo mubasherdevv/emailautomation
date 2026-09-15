@@ -12,8 +12,12 @@ export async function GET() {
   try {
     const envPath = path.join(process.cwd(), ".env.local");
     let envContent = "";
-    if (fs.existsSync(envPath)) {
-      envContent = fs.readFileSync(envPath, "utf-8");
+    try {
+      if (fs.existsSync(envPath)) {
+        envContent = fs.readFileSync(envPath, "utf-8");
+      }
+    } catch {
+      // Ignore read errors
     }
 
     // Parse env key-values
@@ -77,8 +81,12 @@ export async function POST(request: Request) {
     const envPath = path.join(process.cwd(), ".env.local");
 
     let currentEnv = "";
-    if (fs.existsSync(envPath)) {
-      currentEnv = fs.readFileSync(envPath, "utf-8");
+    try {
+      if (fs.existsSync(envPath)) {
+        currentEnv = fs.readFileSync(envPath, "utf-8");
+      }
+    } catch {
+      // Ignore read errors
     }
 
     const envMap: Record<string, string> = {};
@@ -168,16 +176,23 @@ export async function POST(request: Request) {
       process.env.N8N_WEBHOOK_SECRET = body.n8nWebhookSecret.trim();
     }
 
-    // Write updated keys to .env.local
-    const newContent = Object.entries(envMap)
-      .map(([k, v]) => `${k}=${v}`)
-      .join("\n");
-
-    fs.writeFileSync(envPath, newContent, "utf-8");
+    // Safely attempt to write to .env.local (works on local/self-hosted; fails silently on Vercel serverless)
+    let fileSaved = false;
+    try {
+      const newContent = Object.entries(envMap)
+        .map(([k, v]) => `${k}=${v}`)
+        .join("\n");
+      fs.writeFileSync(envPath, newContent, "utf-8");
+      fileSaved = true;
+    } catch {
+      // Ignore EROFS (Read-only file system on Vercel / serverless runtime)
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Configuration saved successfully to server and .env.local",
+      message: fileSaved
+        ? "Configuration saved successfully to server and .env.local"
+        : "Configuration updated in memory. (For permanent Vercel settings, add them to your Vercel Project Environment Variables).",
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to persist settings";
