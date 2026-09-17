@@ -65,10 +65,78 @@ export async function POST(
       }
     }
 
+    // Resolve leads if campaign uses contacts directory
+    let leads: Array<{
+      "First Name": string;
+      "Last Name": string;
+      "Email": string;
+      "Personal Email": string;
+      "Website": string;
+      "Address": string;
+      "Contact": string;
+    }> = [];
+
+    const isContactsSource = 
+      campaign.source_type === "contacts" || 
+      campaign.sheet_id === "contacts_source" || 
+      campaign.sheet_id?.startsWith("contacts");
+
+    if (isContactsSource) {
+      let idList = campaign.selected_contact_ids || [];
+      const idSet = new Set(idList);
+      let matchedContacts: any[] = idSet.size > 0 
+        ? store.contacts.filter((c) => idSet.has(c.id))
+        : [];
+
+      if (
+        matchedContacts.length === 0 &&
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")
+      ) {
+        try {
+          const supabase = createAdminClient();
+          
+          if (idList.length === 0) {
+            const { data: ccData } = await supabase
+              .from("campaign_contacts")
+              .select("contact_id")
+              .eq("campaign_id", campaign.id);
+            if (ccData && ccData.length > 0) {
+              idList = ccData.map((r) => r.contact_id);
+            }
+          }
+
+          let q = supabase.from("contacts").select("*");
+          if (idList.length > 0) {
+            q = q.in("id", idList);
+          } else {
+            q = q.eq("status", "pending").limit(campaign.send_limit || 100);
+          }
+          const { data } = await q;
+          if (data && Array.isArray(data)) {
+            matchedContacts = data;
+          }
+        } catch (e) {
+          console.error("Error fetching campaign contacts from Supabase in restart", e);
+        }
+      }
+
+      leads = matchedContacts.map((c) => ({
+        "First Name": c.first_name || "",
+        "Last Name": c.last_name || "",
+        "Email": c.email || "",
+        "Personal Email": c.personal_email || "",
+        "Website": c.website || "",
+        "Address": c.address || "",
+        "Contact": c.contact || "",
+      })).filter((l) => Boolean(l.Email && l.Email.includes("@")));
+    }
+
     // Prepare secure payload for n8n automation engine
     const n8nPayload = {
       campaignId: campaign.id,
       campaignName: campaign.name,
+      sourceType: isContactsSource ? "contacts" : (campaign.source_type || "sheets"),
       sendLimit: campaign.send_limit,
       batchSize: campaign.batch_size,
       delaySeconds: campaign.delay_seconds,
@@ -81,6 +149,7 @@ export async function POST(
       primaryRecipientField: campaign.primary_recipient_field,
       htmlBody: htmlBody || "<p>Hi {{firstName}}, hope you are well!</p>",
       textBody: textBody || "",
+      leads: leads,
       isRestart: true,
     };
 

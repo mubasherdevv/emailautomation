@@ -75,12 +75,17 @@ export async function POST(
       "Contact": string;
     }> = [];
 
-    if (campaign.source_type === "contacts") {
-      const idList = campaign.selected_contact_ids || [];
+    const isContactsSource = 
+      campaign.source_type === "contacts" || 
+      campaign.sheet_id === "contacts_source" || 
+      campaign.sheet_id?.startsWith("contacts");
+
+    if (isContactsSource) {
+      let idList = campaign.selected_contact_ids || [];
       const idSet = new Set(idList);
-      let matchedContacts = idSet.size > 0 
+      let matchedContacts: any[] = idSet.size > 0 
         ? store.contacts.filter((c) => idSet.has(c.id))
-        : store.contacts;
+        : [];
 
       if (
         matchedContacts.length === 0 &&
@@ -89,9 +94,24 @@ export async function POST(
       ) {
         try {
           const supabase = createAdminClient();
+          
+          // First check campaign_contacts pivot table
+          if (idList.length === 0) {
+            const { data: ccData } = await supabase
+              .from("campaign_contacts")
+              .select("contact_id")
+              .eq("campaign_id", campaign.id);
+            if (ccData && ccData.length > 0) {
+              idList = ccData.map((r) => r.contact_id);
+            }
+          }
+
           let q = supabase.from("contacts").select("*");
           if (idList.length > 0) {
             q = q.in("id", idList);
+          } else {
+            // Default to all pending contacts up to send_limit
+            q = q.eq("status", "pending").limit(campaign.send_limit || 100);
           }
           const { data } = await q;
           if (data && Array.isArray(data)) {
@@ -110,14 +130,21 @@ export async function POST(
         "Website": c.website || "",
         "Address": c.address || "",
         "Contact": c.contact || "",
-      }));
+      })).filter((l) => Boolean(l.Email && l.Email.includes("@")));
+
+      if (leads.length === 0) {
+        return NextResponse.json(
+          { error: "No recipient contacts found for this campaign. Please select contacts with valid email addresses." },
+          { status: 400 }
+        );
+      }
     }
 
     // Prepare secure payload for n8n automation engine
     const n8nPayload = {
       campaignId: campaign.id,
       campaignName: campaign.name,
-      sourceType: campaign.source_type || "sheets",
+      sourceType: isContactsSource ? "contacts" : (campaign.source_type || "sheets"),
       sendLimit: campaign.send_limit,
       batchSize: campaign.batch_size,
       delaySeconds: campaign.delay_seconds,

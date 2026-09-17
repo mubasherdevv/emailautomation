@@ -151,6 +151,28 @@ export async function POST(request: Request) {
           // Fallback to strict DB schema columns
           await supabase.from("campaigns").insert([dbPayload]);
         }
+
+        // Also persist contact links to campaign_contacts pivot table
+        if (sourceType === "contacts" && selectedContactIds && selectedContactIds.length > 0) {
+          try {
+            const { data: cRows } = await supabase
+              .from("contacts")
+              .select("id, email")
+              .in("id", selectedContactIds);
+
+            if (cRows && cRows.length > 0) {
+              const pivotRows = cRows.map((c) => ({
+                campaign_id: newCampaign.id,
+                contact_id: c.id,
+                recipient_email: c.email,
+                status: "pending",
+              }));
+              await supabase.from("campaign_contacts").upsert(pivotRows, { onConflict: "campaign_id,contact_id" });
+            }
+          } catch (pivotErr) {
+            console.error("Error linking campaign_contacts:", pivotErr);
+          }
+        }
       } catch (e) {
         console.error("Supabase campaign insertion error:", e);
       }
