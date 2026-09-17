@@ -269,7 +269,7 @@ export default function NewCampaignPage() {
           sourceType,
           selectedContactIds: Array.from(selectedContactIds),
           sheetId: sourceType === "sheets" ? sheetId : (sheetId || "contacts_source"),
-          sheetName: sourceType === "sheets" ? sheetName : "Contacts",
+          sheetName: sourceType === "sheets" ? sheetName : (sheetName || "Sheet1"),
           templateId: templateId || undefined,
           subject,
           fromName,
