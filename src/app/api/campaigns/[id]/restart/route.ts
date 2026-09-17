@@ -42,7 +42,7 @@ export async function POST(
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")) {
       const supabase = createAdminClient();
       if (campaign.template_id) {
-        const { data } = await supabase.from("email_templates").select("*").eq("id", campaign.template_id).single();
+        const { data } = await supabase.from("email_templates").select("*").eq("id", campaign.template_id).maybeSingle();
         if (data) {
           htmlBody = data.html_body;
           textBody = data.text_body;
@@ -54,6 +54,14 @@ export async function POST(
           htmlBody = data[0].html_body;
           textBody = data[0].text_body;
         }
+      }
+    }
+
+    if (!htmlBody && campaign.template_id) {
+      const memTpl = store.templates.find((t) => t.id === campaign.template_id);
+      if (memTpl) {
+        htmlBody = memTpl.html_body || "";
+        textBody = memTpl.text_body || "";
       }
     }
 

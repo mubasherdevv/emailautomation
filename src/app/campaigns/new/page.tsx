@@ -28,6 +28,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  FileText,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 
@@ -149,10 +150,12 @@ export default function NewCampaignPage() {
     fetch("/api/templates")
       .then((res) => res.json())
       .then((data) => {
-        if (data.templates) {
+        if (data.templates && Array.isArray(data.templates)) {
           setTemplates(data.templates);
+          // If templates exist, select the first one and populate subject
           if (data.templates.length > 0) {
             setTemplateId(data.templates[0].id);
+            setSubject(data.templates[0].subject || "Quick question about {{company}}");
           }
         }
       })
@@ -395,6 +398,33 @@ export default function NewCampaignPage() {
               ))}
             </div>
           </div>
+
+          {templates.find((t) => t.id === templateId) && (
+            <div className="p-3.5 rounded-lg border border-purple-100 bg-purple-50/30 text-xs space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-purple-900">
+                <span className="flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-[#6D28D9]" />
+                  Template Email Body Preview: {templates.find((t) => t.id === templateId)?.name}
+                </span>
+                <Link
+                  href="/templates"
+                  className="text-[#6D28D9] hover:underline font-normal text-[11px]"
+                  target="_blank"
+                >
+                  Edit in Template Library &rarr;
+                </Link>
+              </div>
+              <div
+                className="p-3 bg-white rounded-md border border-purple-100 text-neutral-700 text-xs max-h-40 overflow-y-auto leading-relaxed shadow-xs"
+                dangerouslySetInnerHTML={{
+                  __html:
+                    templates.find((t) => t.id === templateId)?.html_body ||
+                    templates.find((t) => t.id === templateId)?.text_body ||
+                    "<p class='text-neutral-400'>No content</p>",
+                }}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
