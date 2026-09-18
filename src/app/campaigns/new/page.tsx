@@ -69,6 +69,7 @@ export default function NewCampaignPage() {
   const [batchSize, setBatchSize] = useState(5);
   const [delaySeconds, setDelaySeconds] = useState(2);
   const [primaryRecipientField, setPrimaryRecipientField] = useState<"email" | "personal_email">("email");
+  const [templatePreviewMode, setTemplatePreviewMode] = useState<"html" | "text">("html");
 
   const handleVerifySheet = async (customId?: string, customName?: string) => {
     const targetId = customId || sheetId;
@@ -399,32 +400,99 @@ export default function NewCampaignPage() {
             </div>
           </div>
 
-          {templates.find((t) => t.id === templateId) && (
-            <div className="p-3.5 rounded-lg border border-purple-100 bg-purple-50/30 text-xs space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-semibold text-purple-900">
-                <span className="flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5 text-[#6D28D9]" />
-                  Template Email Body Preview: {templates.find((t) => t.id === templateId)?.name}
-                </span>
-                <Link
-                  href="/templates"
-                  className="text-[#6D28D9] hover:underline font-normal text-[11px]"
-                  target="_blank"
-                >
-                  Edit in Template Library &rarr;
-                </Link>
+          {templates.find((t) => t.id === templateId) && (() => {
+            const currentTpl = templates.find((t) => t.id === templateId);
+            if (!currentTpl) return null;
+
+            const tplText = currentTpl.text_body ?? "";
+            const isHtmlDefault =
+              !currentTpl.html_body ||
+              currentTpl.html_body.includes("I was checking {{website}} and noticed key growth opportunities");
+            const isTextCustom =
+              Boolean(tplText) &&
+              !tplText.includes("I was checking {{website}} and noticed key growth opportunities");
+
+            // Smartly default to plain text view if user customized plain text and html is default
+            const effectiveMode =
+              templatePreviewMode || (isTextCustom && isHtmlDefault ? "text" : "html");
+
+            const textDisplay =
+              tplText ||
+              (currentTpl.html_body
+                ? currentTpl.html_body
+                    .replace(/<br\s*[\/]?>/gi, "\n")
+                    .replace(/<\/p>/gi, "\n\n")
+                    .replace(/<[^>]+>/g, "")
+                    .trim()
+                : "No text content");
+
+            const htmlDisplay =
+              isTextCustom && isHtmlDefault && tplText
+                ? tplText
+                    .split(/\n\n+/)
+                    .map((p) => `<p>${p.trim().replace(/\n/g, "<br />")}</p>`)
+                    .join("\n")
+                : currentTpl.html_body || tplText || "<p class='text-neutral-400'>No content</p>";
+
+            return (
+              <div className="p-3.5 rounded-lg border border-purple-100 bg-purple-50/30 text-xs space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] font-semibold text-purple-900">
+                  <span className="flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-[#6D28D9]" />
+                    <span>Template Preview: <strong>{currentTpl.name}</strong></span>
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <div className="inline-flex rounded-md border border-purple-200 bg-white p-0.5 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => setTemplatePreviewMode("html")}
+                        className={`px-2 py-0.5 rounded cursor-pointer transition font-medium ${
+                          effectiveMode === "html"
+                            ? "bg-purple-600 text-white font-semibold"
+                            : "text-neutral-600 hover:text-neutral-900"
+                        }`}
+                      >
+                        HTML View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTemplatePreviewMode("text")}
+                        className={`px-2 py-0.5 rounded cursor-pointer transition font-medium ${
+                          effectiveMode === "text"
+                            ? "bg-purple-600 text-white font-semibold"
+                            : "text-neutral-600 hover:text-neutral-900"
+                        }`}
+                      >
+                        Plain Text View
+                      </button>
+                    </div>
+
+                    <Link
+                      href="/templates"
+                      className="text-[#6D28D9] hover:underline font-normal text-[11px]"
+                      target="_blank"
+                    >
+                      Edit in Template Library &rarr;
+                    </Link>
+                  </div>
+                </div>
+
+                {effectiveMode === "text" ? (
+                  <div className="p-3.5 bg-white rounded-md border border-purple-100 text-neutral-800 text-xs max-h-48 overflow-y-auto leading-relaxed shadow-xs whitespace-pre-wrap font-sans">
+                    {textDisplay}
+                  </div>
+                ) : (
+                  <div
+                    className="p-3.5 bg-white rounded-md border border-purple-100 text-neutral-800 text-xs max-h-48 overflow-y-auto leading-relaxed shadow-xs"
+                    dangerouslySetInnerHTML={{
+                      __html: htmlDisplay,
+                    }}
+                  />
+                )}
               </div>
-              <div
-                className="p-3 bg-white rounded-md border border-purple-100 text-neutral-700 text-xs max-h-40 overflow-y-auto leading-relaxed shadow-xs"
-                dangerouslySetInnerHTML={{
-                  __html:
-                    templates.find((t) => t.id === templateId)?.html_body ||
-                    templates.find((t) => t.id === templateId)?.text_body ||
-                    "<p class='text-neutral-400'>No content</p>",
-                }}
-              />
-            </div>
-          )}
+            );
+          })()}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

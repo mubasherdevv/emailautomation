@@ -65,6 +65,21 @@ export async function POST(
       }
     }
 
+    // If text_body has custom content while html_body is default or empty, auto-convert
+    const isHtmlDefault =
+      !htmlBody ||
+      htmlBody.includes("I was checking {{website}} and noticed key growth opportunities");
+    const isTextCustom =
+      Boolean(textBody) &&
+      !textBody.includes("I was checking {{website}} and noticed key growth opportunities");
+
+    if (isTextCustom && isHtmlDefault) {
+      htmlBody = textBody
+        .split(/\n\n+/)
+        .map((p) => `<p>${p.trim().replace(/\n/g, "<br />")}</p>`)
+        .join("\n");
+    }
+
     // Resolve leads if campaign uses contacts directory
     let leads: Array<{
       "First Name": string;

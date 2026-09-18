@@ -159,13 +159,69 @@ export default function TemplatesPage() {
     );
   };
 
+  const convertPlainTextToHtml = (text: string) => {
+    if (!text || !text.trim()) return "";
+    return text
+      .split(/\n\n+/)
+      .map((p) => `<p>${p.trim().replace(/\n/g, "<br />")}</p>`)
+      .join("\n");
+  };
+
+  const convertHtmlToPlainText = (html: string) => {
+    if (!html) return "";
+    return html
+      .replace(/<br\s*[\/]?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .trim();
+  };
+
+  const syncPlainTextToHtml = () => {
+    if (!textBody.trim()) {
+      toast("Nothing to Sync", "Plain text body is empty", "warning");
+      return;
+    }
+    const converted = convertPlainTextToHtml(textBody);
+    setHtmlBody(converted);
+    toast("Synced to HTML", "HTML body has been updated from plain text", "success");
+  };
+
+  const syncHtmlToPlainText = () => {
+    if (!htmlBody.trim()) {
+      toast("Nothing to Sync", "HTML body is empty", "warning");
+      return;
+    }
+    const converted = convertHtmlToPlainText(htmlBody);
+    setTextBody(converted);
+    toast("Synced to Plain Text", "Plain text body has been updated from HTML", "success");
+  };
+
   const selectTemplateForEditing = (tpl: EmailTemplate) => {
     setIsEditing(true);
     setSelectedTemplate(tpl);
     setName(tpl.name);
     setSubject(tpl.subject);
-    setHtmlBody(tpl.html_body);
-    setTextBody(tpl.text_body || "");
+
+    const textVal = tpl.text_body ?? "";
+    const isHtmlDefault =
+      !tpl.html_body ||
+      tpl.html_body.includes("I was checking {{website}} and noticed key growth opportunities");
+    const isTextCustom =
+      Boolean(textVal) &&
+      !textVal.includes("I was checking {{website}} and noticed key growth opportunities");
+
+    if (isTextCustom && isHtmlDefault) {
+      const generatedHtml = convertPlainTextToHtml(textVal);
+      setHtmlBody(generatedHtml);
+      setTextBody(textVal);
+    } else {
+      setHtmlBody(tpl.html_body);
+      setTextBody(textVal || (tpl.html_body ? convertHtmlToPlainText(tpl.html_body) : ""));
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -174,20 +230,44 @@ export default function TemplatesPage() {
       toast("Missing Name", "Please enter a template name", "error");
       return;
     }
+
+    const isHtmlDefault =
+      !htmlBody ||
+      htmlBody.includes("I was checking {{website}} and noticed key growth opportunities");
+    const isTextCustom =
+      Boolean(textBody) &&
+      !textBody.includes("I was checking {{website}} and noticed key growth opportunities");
+
+    let finalHtml = htmlBody;
+    let finalText = textBody;
+
+    // If user edited Plain Text or has custom text with untouched default HTML, auto-sync HTML
+    if (activeTab === "text" || (isTextCustom && isHtmlDefault)) {
+      if (textBody.trim()) {
+        finalHtml = convertPlainTextToHtml(textBody);
+        setHtmlBody(finalHtml);
+      }
+    } else if (activeTab === "html" && (!textBody || isHtmlDefault)) {
+      if (htmlBody.trim()) {
+        finalText = convertHtmlToPlainText(htmlBody);
+        setTextBody(finalText);
+      }
+    }
+
     try {
       if (isEditing && selectedTemplate) {
         const res = await fetch(`/api/templates/${selectedTemplate.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, subject, html_body: htmlBody, text_body: textBody }),
+          body: JSON.stringify({ name, subject, html_body: finalHtml, text_body: finalText }),
         });
         if (!res.ok) throw new Error("Update failed");
-        toast("Template Saved", "Template updated successfully", "success");
+        toast("Template Saved", "Template updated successfully (HTML & Plain Text synced)", "success");
       } else {
         const res = await fetch("/api/templates", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, subject, html_body: htmlBody, text_body: textBody }),
+          body: JSON.stringify({ name, subject, html_body: finalHtml, text_body: finalText }),
         });
         if (!res.ok) throw new Error("Creation failed");
         const data = await res.json();
@@ -371,14 +451,25 @@ export default function TemplatesPage() {
                   </div>
 
                   <div className="mt-2.5 flex items-center gap-1 flex-wrap">
-                    {tpl.variables?.map((v) => (
-                      <span
-                        key={v}
-                        className="px-1.5 py-0.5 rounded-sm bg-neutral-100 dark:bg-neutral-800 text-[9px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700"
-                      >
-                        {`{{${v}}}`}
-                      </span>
-                    ))}
+                    {(() => {
+                      const detected = new Set<string>(tpl.variables || []);
+                      const combined = `${tpl.subject || ""} ${tpl.html_body || ""} ${tpl.text_body || ""}`;
+                      const matches = combined.matchAll(/\{\{\s*([a-zA-Z0-9_-]+)\s*\}\}/g);
+                      for (const m of matches) {
+                        if (m[1]) detected.add(m[1]);
+                      }
+                      if (detected.size === 0) {
+                        ["firstName", "company", "website"].forEach((v) => detected.add(v));
+                      }
+                      return Array.from(detected).map((v) => (
+                        <span
+                          key={v}
+                          className="px-1.5 py-0.5 rounded-sm bg-neutral-100 dark:bg-neutral-800 text-[9px] font-mono text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700"
+                        >
+                          {`{{${v}}}`}
+                        </span>
+                      ));
+                    })()}
                   </div>
                 </div>
               );
@@ -416,7 +507,7 @@ export default function TemplatesPage() {
 
             {/* Template Name */}
             <div>
-              <label className="block text-xs font-semibold text-[#111111] mb-1">
+              <label className="block text-xs font-semibold text-[#111111] mb-1.5">
                 Template Name *
               </label>
               <input
@@ -424,7 +515,7 @@ export default function TemplatesPage() {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Local SEO Outreach"
+                placeholder="e.g. Initial Email - DM"
                 className="w-full rounded-lg border border-[#E5E5E5] px-3.5 py-2 text-xs text-[#111111] focus:border-[#6D28D9] focus:outline-hidden"
               />
             </div>
@@ -478,6 +569,7 @@ export default function TemplatesPage() {
                   { tag: "{{firstName}}", label: "First Name" },
                   { tag: "{{lastName}}", label: "Last Name" },
                   { tag: "{{email}}", label: "Email" },
+                  { tag: "{{company}}", label: "Company" },
                   { tag: "{{website}}", label: "Website" },
                   { tag: "{{address}}", label: "Address" },
                   { tag: "{{contact}}", label: "Contact Phone" },
@@ -533,9 +625,32 @@ export default function TemplatesPage() {
                     Plain Text Fallback
                   </button>
                 </div>
-                <span className="text-[10px] text-neutral-400">
-                  {activeTab === "html" ? "Rendered in preview" : "For text-only clients"}
-                </span>
+                <div className="flex items-center gap-2">
+                  {activeTab === "text" ? (
+                    <button
+                      type="button"
+                      onClick={syncPlainTextToHtml}
+                      title="Convert this plain text into formatted HTML body"
+                      className="text-[10px] text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 py-0.5 rounded cursor-pointer font-medium flex items-center gap-1 transition shadow-xs"
+                    >
+                      <Sparkles className="h-2.5 w-2.5" />
+                      <span>Sync to HTML Body</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={syncHtmlToPlainText}
+                      title="Strip HTML tags and sync to plain text body"
+                      className="text-[10px] text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 py-0.5 rounded cursor-pointer font-medium flex items-center gap-1 transition shadow-xs"
+                    >
+                      <Sparkles className="h-2.5 w-2.5" />
+                      <span>Sync to Plain Text</span>
+                    </button>
+                  )}
+                  <span className="text-[10px] text-neutral-400">
+                    {activeTab === "html" ? "Rendered in preview" : "Auto-synced on save"}
+                  </span>
+                </div>
               </div>
 
               {activeTab === "html" ? (
