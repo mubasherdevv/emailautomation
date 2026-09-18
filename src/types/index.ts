@@ -53,6 +53,7 @@ export interface Contact {
   email: string;
   personal_email?: string | null;
   address?: string | null;
+  company?: string | null;
   contact?: string | null;
   website?: string | null;
   status: ContactStatus;

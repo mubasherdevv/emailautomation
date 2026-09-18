@@ -143,6 +143,7 @@ export async function POST(
         "Personal Email": c.personal_email || "",
         "Website": c.website || "",
         "Address": c.address || "",
+        "Company": c.company || c.address || "",
         "Contact": c.contact || "",
       })).filter((l) => Boolean(l.Email && l.Email.includes("@")));
     }
