@@ -1,7 +1,9 @@
-import { NextResponse } from "next/server";
 import { store } from "@/lib/store";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { Campaign, CampaignEvent } from "@/types";
+import { createAdminClient, isSupabaseConfigured } from "@/lib/supabase/admin";
 import { isRequestAuthorized } from "@/lib/auth";
+import { resolveTemplateBodies } from "@/lib/template-utils";
+import { errorResponse, successResponse } from "@/lib/api-response";
 
 export async function POST(
   request: Request,
@@ -9,31 +11,28 @@ export async function POST(
 ) {
   const authorized = await isRequestAuthorized(request);
   if (!authorized) {
-    return NextResponse.json({ error: "Unauthorized access: admin privileges required" }, { status: 401 });
+    return errorResponse("Unauthorized access: admin privileges required", 401);
   }
 
   const { id } = await params;
 
   try {
     let campaign = store.campaigns.find((c) => c.id === id);
-    if (!campaign && process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")) {
+    if (!campaign && isSupabaseConfigured()) {
       const supabase = createAdminClient();
       const { data } = await supabase.from("campaigns").select("*").eq("id", id).single();
       if (data) {
-        campaign = data as import("@/types").Campaign;
+        campaign = data as Campaign;
         store.campaigns.push(campaign);
       }
     }
 
     if (!campaign) {
-      return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
+      return errorResponse("Campaign not found", 404);
     }
 
     if (campaign.status === "running") {
-      return NextResponse.json(
-        { error: "Campaign is already running" },
-        { status: 400 }
-      );
+      return errorResponse("Campaign is already running", 400);
     }
 
     // Update status to running
@@ -42,48 +41,44 @@ export async function POST(
     campaign.updated_at = new Date().toISOString();
 
     // Fetch template HTML body if attached to campaign or fetch most recent template
-    let htmlBody = "";
-    let textBody = "";
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")) {
+    let rawHtml = "";
+    let rawText = "";
+
+    if (isSupabaseConfigured()) {
       const supabase = createAdminClient();
       if (campaign.template_id) {
-        const { data } = await supabase.from("email_templates").select("*").eq("id", campaign.template_id).maybeSingle();
+        const { data } = await supabase
+          .from("email_templates")
+          .select("*")
+          .eq("id", campaign.template_id)
+          .maybeSingle();
         if (data) {
-          htmlBody = data.html_body;
-          textBody = data.text_body;
+          rawHtml = data.html_body;
+          rawText = data.text_body;
         }
       }
-      if (!htmlBody) {
-        const { data } = await supabase.from("email_templates").select("*").order("created_at", { ascending: false }).limit(1);
+      if (!rawHtml) {
+        const { data } = await supabase
+          .from("email_templates")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(1);
         if (data && data.length > 0) {
-          htmlBody = data[0].html_body;
-          textBody = data[0].text_body;
+          rawHtml = data[0].html_body;
+          rawText = data[0].text_body;
         }
       }
     }
 
-    if (!htmlBody && campaign.template_id) {
+    if (!rawHtml && campaign.template_id) {
       const memTpl = store.templates.find((t) => t.id === campaign.template_id);
       if (memTpl) {
-        htmlBody = memTpl.html_body || "";
-        textBody = memTpl.text_body || "";
+        rawHtml = memTpl.html_body || "";
+        rawText = memTpl.text_body || "";
       }
     }
 
-    // If text_body has custom content while html_body is default or empty, auto-convert
-    const isHtmlDefault =
-      !htmlBody ||
-      htmlBody.includes("I was checking {{website}} and noticed key growth opportunities");
-    const isTextCustom =
-      Boolean(textBody) &&
-      !textBody.includes("I was checking {{website}} and noticed key growth opportunities");
-
-    if (isTextCustom && isHtmlDefault) {
-      htmlBody = textBody
-        .split(/\n\n+/)
-        .map((p) => `<p>${p.trim().replace(/\n/g, "<br />")}</p>`)
-        .join("\n");
-    }
+    const { htmlBody, textBody } = resolveTemplateBodies(rawHtml, rawText);
 
     // Resolve leads if campaign uses contacts directory
     let leads: Array<{
@@ -93,29 +88,25 @@ export async function POST(
       "Personal Email": string;
       "Website": string;
       "Address": string;
+      "Company": string;
       "Contact": string;
     }> = [];
 
-    const isContactsSource = 
-      campaign.source_type === "contacts" || 
-      campaign.sheet_id === "contacts_source" || 
+    const isContactsSource =
+      campaign.source_type === "contacts" ||
+      campaign.sheet_id === "contacts_source" ||
       campaign.sheet_id?.startsWith("contacts");
 
     if (isContactsSource) {
       let idList = campaign.selected_contact_ids || [];
       const idSet = new Set(idList);
-      let matchedContacts: any[] = idSet.size > 0 
-        ? store.contacts.filter((c) => idSet.has(c.id))
-        : [];
+      let matchedContacts: Array<Record<string, any>> =
+        idSet.size > 0 ? store.contacts.filter((c) => idSet.has(c.id)) : [];
 
-      if (
-        matchedContacts.length === 0 &&
-        process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")
-      ) {
+      if (matchedContacts.length === 0 && isSupabaseConfigured()) {
         try {
           const supabase = createAdminClient();
-          
+
           // First check campaign_contacts pivot table
           if (idList.length === 0) {
             const { data: ccData } = await supabase
@@ -131,7 +122,6 @@ export async function POST(
           if (idList.length > 0) {
             q = q.in("id", idList);
           } else {
-            // Default to all pending contacts up to send_limit
             q = q.eq("status", "pending").limit(campaign.send_limit || 100);
           }
           const { data } = await q;
@@ -139,30 +129,32 @@ export async function POST(
             matchedContacts = data;
           }
         } catch (e) {
-          console.error("Error fetching campaign contacts from Supabase", e);
+          console.error("Error fetching campaign contacts from Supabase:", e);
         }
       }
 
-      leads = matchedContacts.map((c) => ({
-        "First Name": c.first_name || "",
-        "Last Name": c.last_name || "",
-        "Email": c.email || "",
-        "Personal Email": c.personal_email || "",
-        "Website": c.website || "",
-        "Address": c.address || "",
-        "Company": c.company || c.address || "",
-        "Contact": c.contact || "",
-      })).filter((l) => Boolean(l.Email && l.Email.includes("@")));
+      leads = matchedContacts
+        .map((c) => ({
+          "First Name": c.first_name || "",
+          "Last Name": c.last_name || "",
+          "Email": c.email || "",
+          "Personal Email": c.personal_email || "",
+          "Website": c.website || "",
+          "Address": c.address || "",
+          "Company": c.company || c.address || "",
+          "Contact": c.contact || "",
+        }))
+        .filter((l) => Boolean(l.Email && l.Email.includes("@")));
 
       if (leads.length === 0) {
-        return NextResponse.json(
-          { error: "No recipient contacts found for this campaign. Please select contacts with valid email addresses." },
-          { status: 400 }
+        return errorResponse(
+          "No recipient contacts found for this campaign. Please select contacts with valid email addresses.",
+          400
         );
       }
     }
 
-    // Prepare secure payload for n8n automation engine
+    // Prepare payload for automation engine (n8n)
     const n8nPayload = {
       campaignId: campaign.id,
       campaignName: campaign.name,
@@ -179,15 +171,13 @@ export async function POST(
       primaryRecipientField: campaign.primary_recipient_field,
       htmlBody: htmlBody || "<p>Hi {{firstName}}, hope you are well!</p>",
       textBody: textBody || "",
-      leads: leads,
+      leads,
     };
 
     const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
     const n8nSecret = process.env.N8N_WEBHOOK_SECRET || "dev_secret_campaign_key_2026";
-
     let n8nTriggerStatus = "simulated_local";
 
-    // Call n8n webhook if URL is configured
     if (n8nWebhookUrl && !n8nWebhookUrl.includes("example.com")) {
       try {
         const res = await fetch(n8nWebhookUrl, {
@@ -205,10 +195,10 @@ export async function POST(
     }
 
     // Insert campaign event for live activity stream
-    const event = {
+    const event: CampaignEvent = {
       id: crypto.randomUUID(),
       campaign_id: campaign.id,
-      event_type: "campaign_started" as const,
+      event_type: "campaign_started",
       email: null,
       message: `Campaign started with limit ${campaign.send_limit} and batch size ${campaign.batch_size}`,
       metadata: { ...n8nPayload, n8nTriggerStatus },
@@ -217,25 +207,25 @@ export async function POST(
 
     store.events.unshift(event);
 
-    // Sync to Supabase if connected
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")
-    ) {
-      const supabase = createAdminClient();
-      await supabase
-        .from("campaigns")
-        .update({
-          status: "running",
-          started_at: campaign.started_at,
-          updated_at: campaign.updated_at,
-        })
-        .eq("id", id);
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = createAdminClient();
+        await supabase
+          .from("campaigns")
+          .update({
+            status: "running",
+            started_at: campaign.started_at,
+            updated_at: campaign.updated_at,
+          })
+          .eq("id", id);
 
-      await supabase.from("campaign_events").insert([event]);
+        await supabase.from("campaign_events").insert([event]);
+      } catch (dbErr) {
+        console.error("Error updating campaign status in Supabase:", dbErr);
+      }
     }
 
-    return NextResponse.json({
+    return successResponse({
       success: true,
       message: "Campaign started successfully and dispatched to n8n",
       campaign,
@@ -243,6 +233,7 @@ export async function POST(
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to start campaign";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return errorResponse(message, 500);
   }
 }
+

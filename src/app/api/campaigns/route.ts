@@ -1,16 +1,12 @@
-import { NextResponse } from "next/server";
 import { store } from "@/lib/store";
-import { CreateCampaignSchema } from "@/types";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { Campaign, CreateCampaignSchema } from "@/types";
+import { createAdminClient, isSupabaseConfigured } from "@/lib/supabase/admin";
+import { errorResponse, successResponse } from "@/lib/api-response";
 
 export async function GET() {
   try {
-    let supabaseCampaigns: any[] = [];
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock") &&
-      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-    ) {
+    let supabaseCampaigns: Campaign[] = [];
+    if (isSupabaseConfigured()) {
       try {
         const supabase = createAdminClient();
         const { data, error } = await supabase
@@ -19,7 +15,7 @@ export async function GET() {
           .order("created_at", { ascending: false });
 
         if (!error && Array.isArray(data)) {
-          supabaseCampaigns = data;
+          supabaseCampaigns = data as Campaign[];
         }
       } catch (e) {
         console.error("Supabase campaigns fetch error:", e);
@@ -28,20 +24,17 @@ export async function GET() {
 
     // Merge Supabase and in-memory campaigns by id so no campaign is ever missing.
     // Supabase is the source of truth for live fields (status, counts, timestamps).
-    // In-memory only supplements fields that aren't in Supabase (source_type, selected_contact_ids).
-    const map = new Map<string, any>();
+    // In-memory supplements memory-only fields (source_type, selected_contact_ids).
+    const map = new Map<string, Campaign>();
     for (const c of store.campaigns) {
       if (c.id) map.set(c.id, c);
     }
     for (const c of supabaseCampaigns) {
       if (c.id) {
         const local = map.get(c.id);
-        // Supabase wins for all live/status fields; local only fills in memory-only fields
         map.set(c.id, {
-          // Start with local for non-DB fields
           source_type: local?.source_type || "sheets",
           selected_contact_ids: local?.selected_contact_ids || [],
-          // Supabase data overrides everything else
           ...c,
         });
       }
@@ -51,9 +44,10 @@ export async function GET() {
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
 
-    return NextResponse.json({ campaigns: all });
-  } catch {
-    return NextResponse.json({ campaigns: store.campaigns || [] });
+    return successResponse({ campaigns: all });
+  } catch (err) {
+    console.error("Campaigns GET error:", err);
+    return successResponse({ campaigns: store.campaigns || [] });
   }
 }
 
@@ -63,10 +57,7 @@ export async function POST(request: Request) {
     const result = CreateCampaignSchema.safeParse(json);
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: "Validation failed", details: result.error.format() },
-        { status: 400 }
-      );
+      return errorResponse("Validation failed", 400, result.error.format());
     }
 
     const {
@@ -85,10 +76,10 @@ export async function POST(request: Request) {
       primaryRecipientField,
     } = result.data;
 
-    const newCampaign = {
+    const newCampaign: Campaign = {
       id: crypto.randomUUID(),
       name,
-      status: "draft" as const,
+      status: "draft",
       source_type: sourceType || "sheets",
       selected_contact_ids: selectedContactIds || [],
       send_limit: sendLimit,
@@ -112,7 +103,7 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     };
 
-    // Standard columns for database compatibility
+    // Standard columns for database schema compatibility
     const dbPayload = {
       id: newCampaign.id,
       name: newCampaign.name,
@@ -138,21 +129,14 @@ export async function POST(request: Request) {
       updated_at: newCampaign.updated_at,
     };
 
-    // Try Supabase insertion
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")
-    ) {
+    if (isSupabaseConfigured()) {
       try {
         const supabase = createAdminClient();
-        // First attempt with full object
         const { error: insertErr } = await supabase.from("campaigns").insert([newCampaign]);
         if (insertErr) {
-          // Fallback to strict DB schema columns
           await supabase.from("campaigns").insert([dbPayload]);
         }
 
-        // Also persist contact links to campaign_contacts pivot table
         if (sourceType === "contacts" && selectedContactIds && selectedContactIds.length > 0) {
           try {
             const { data: cRows } = await supabase
@@ -167,7 +151,9 @@ export async function POST(request: Request) {
                 recipient_email: c.email,
                 status: "pending",
               }));
-              await supabase.from("campaign_contacts").upsert(pivotRows, { onConflict: "campaign_id,contact_id" });
+              await supabase
+                .from("campaign_contacts")
+                .upsert(pivotRows, { onConflict: "campaign_id,contact_id" });
             }
           } catch (pivotErr) {
             console.error("Error linking campaign_contacts:", pivotErr);
@@ -178,12 +164,12 @@ export async function POST(request: Request) {
       }
     }
 
-    // Keep in-memory store synchronized immediately
     store.campaigns.unshift(newCampaign);
 
-    return NextResponse.json({ campaign: newCampaign }, { status: 201 });
+    return successResponse({ campaign: newCampaign }, 201);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to create campaign";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return errorResponse(message, 500);
   }
 }
+

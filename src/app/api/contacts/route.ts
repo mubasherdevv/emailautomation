@@ -1,18 +1,16 @@
-import { NextResponse } from "next/server";
 import { store } from "@/lib/store";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { Contact } from "@/types";
+import { createAdminClient, isSupabaseConfigured } from "@/lib/supabase/admin";
+import { errorResponse, successResponse } from "@/lib/api-response";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const search = searchParams.get("search")?.toLowerCase() || "";
+  const search = searchParams.get("search")?.toLowerCase().trim() || "";
   const status = searchParams.get("status") || "all";
 
   try {
-    let supabaseContacts: any[] = [];
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")
-    ) {
+    let supabaseContacts: Contact[] = [];
+    if (isSupabaseConfigured()) {
       try {
         const supabase = createAdminClient();
         let query = supabase.from("contacts").select("*").order("created_at", { ascending: false });
@@ -26,15 +24,15 @@ export async function GET(request: Request) {
 
         const { data, error } = await query;
         if (!error && Array.isArray(data)) {
-          supabaseContacts = data;
+          supabaseContacts = data as Contact[];
         }
       } catch (e) {
-        console.error("Supabase contacts fetch error (using fallback)", e);
+        console.error("Supabase contacts fetch error (using fallback):", e);
       }
     }
 
     // Merge Supabase and in-memory store contacts to guarantee zero data loss
-    const emailMap = new Map<string, any>();
+    const emailMap = new Map<string, Contact>();
     for (const c of store.contacts) {
       if (c.email) emailMap.set(c.email.toLowerCase(), c);
     }
@@ -56,9 +54,10 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ contacts: allContacts });
-  } catch {
-    return NextResponse.json({ contacts: store.contacts });
+    return successResponse({ contacts: allContacts });
+  } catch (err) {
+    console.error("Contacts route GET error:", err);
+    return successResponse({ contacts: store.contacts });
   }
 }
 
@@ -68,16 +67,16 @@ export async function POST(request: Request) {
     const rawEmail = json.email ? String(json.email).trim().toLowerCase() : "";
 
     if (!rawEmail || !rawEmail.includes("@")) {
-      return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
+      return errorResponse("Valid email is required", 400);
     }
 
-    // Check duplicate
-    const existing = store.contacts.find((c) => c.email === rawEmail);
+    // Duplicate prevention
+    const existing = store.contacts.find((c) => c.email?.toLowerCase() === rawEmail);
     if (existing) {
-      return NextResponse.json({ error: "Contact already exists with this email" }, { status: 409 });
+      return errorResponse("Contact already exists with this email", 409);
     }
 
-    const newContact = {
+    const newContact: Contact = {
       id: crypto.randomUUID(),
       first_name: json.first_name || null,
       last_name: json.last_name || null,
@@ -86,29 +85,26 @@ export async function POST(request: Request) {
       address: json.address || null,
       contact: json.contact || null,
       website: json.website || null,
-      status: "pending" as const,
+      status: "pending",
       last_sent_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")
-    ) {
+    if (isSupabaseConfigured()) {
       try {
         const supabase = createAdminClient();
         await supabase.from("contacts").upsert([newContact], { onConflict: "email" });
       } catch (e) {
-        console.error("Supabase direct insert error", e);
+        console.error("Supabase direct insert error:", e);
       }
     }
 
     store.contacts.unshift(newContact);
-    return NextResponse.json({ contact: newContact }, { status: 201 });
+    return successResponse({ contact: newContact }, 201);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Creation failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return errorResponse(message, 500);
   }
 }
 
@@ -118,16 +114,12 @@ export async function DELETE(request: Request) {
     const ids: string[] = json.ids || (json.id ? [json.id] : []);
 
     if (!ids || ids.length === 0) {
-      return NextResponse.json({ error: "No contact IDs provided for deletion" }, { status: 400 });
+      return errorResponse("No contact IDs provided for deletion", 400);
     }
 
     const idSet = new Set(ids);
 
-    // Delete from Supabase
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock")
-    ) {
+    if (isSupabaseConfigured()) {
       try {
         const supabase = createAdminClient();
         const { error } = await supabase.from("contacts").delete().in("id", ids);
@@ -142,13 +134,14 @@ export async function DELETE(request: Request) {
     // Delete from in-memory store
     store.contacts = store.contacts.filter((c) => !idSet.has(c.id));
 
-    return NextResponse.json({
+    return successResponse({
       success: true,
       deletedCount: ids.length,
       message: `Deleted ${ids.length} contact(s) successfully.`,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Deletion failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return errorResponse(message, 500);
   }
 }
+
