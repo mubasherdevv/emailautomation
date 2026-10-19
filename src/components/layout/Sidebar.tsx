@@ -16,6 +16,7 @@ import {
   Sparkles,
   Zap,
   Navigation,
+  Radar,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
@@ -31,6 +32,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Lead Finder", href: "/lead-finder", icon: Radar },
     { name: "Campaigns", href: "/campaigns", icon: Send },
     { name: "Contacts", href: "/contacts", icon: Users },
     { name: "Templates", href: "/templates", icon: FileText },

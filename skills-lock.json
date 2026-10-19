@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "skills": {
+    "architect-backend": {
+      "source": "furqanistic/aura-skills",
+      "sourceType": "github",
+      "skillPath": "skills/architect-backend/SKILL.md",
+      "computedHash": "2c96293d4ebb60b52fcb0c4ee20442ca009798a135eb094f51f9573fb2c745e7"
+    },
+    "audit-backend-security": {
+      "source": "furqanistic/aura-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-backend-security/SKILL.md",
+      "computedHash": "986b9ada87879bfb31475b6f73c86243eac405812eed3b4a0e8e2e97dbd87e6d"
+    },
+    "improve-backend-code": {
+      "source": "furqanistic/aura-skills",
+      "sourceType": "github",
+      "skillPath": "skills/improve-backend-code/SKILL.md",
+      "computedHash": "45f57edefd7a2f49089bfe9a34b2943381751f4c28491ebf0c0b9c31fd376dff"
+    },
+    "integrate-1bill": {
+      "source": "furqanistic/aura-skills",
+      "sourceType": "github",
+      "skillPath": "skills/payment-integrations/integrate-1bill/SKILL.md",
+      "computedHash": "ad5851640a6492f617210c9e81a38b165e7ba93b45ccac102b48a0f1e5f44c49"
+    },
+    "integrate-easypaisa": {
+      "source": "furqanistic/aura-skills",
+      "sourceType": "github",
+      "skillPath": "skills/payment-integrations/integrate-easypaisa/SKILL.md",
+      "computedHash": "9cb5632fea31d7290c4f92ec66afba24e379cf1b07402b081fed6930e00a3129"
+    },
+    "integrate-jazzcash": {
+      "source": "furqanistic/aura-skills",
+      "sourceType": "github",
+      "skillPath": "skills/payment-integrations/integrate-jazzcash/SKILL.md",
+      "computedHash": "7445891bfd98433bd1abb91a603fc147036d164a56026e6875fc096cf771bb17"
+    },
+    "integrate-stripe": {
+      "source": "furqanistic/aura-skills",
+      "sourceType": "github",
+      "skillPath": "skills/payment-integrations/integrate-stripe/SKILL.md",
+      "computedHash": "9962559cb41a679dbf1a65178fc69f008a1d39679f0b974bfe3f4dd23e078e08"
+    },
+    "optimize-database": {
+      "source": "furqanistic/aura-skills",
+      "sourceType": "github",
+      "skillPath": "skills/optimize-database/SKILL.md",
+      "computedHash": "26bdad11719c7b4d3539598a4cf184a5252b06b43a21f21e4da9a995051b931b"
+    },
+    "screenshot-to-code": {
+      "source": "furqanistic/aura-skills",
+      "sourceType": "github",
+      "skillPath": "skills/screenshot-to-code/SKILL.md",
+      "computedHash": "824645f3e3970165b588a6a386b5eb3e5b6e4cdbc3abcfbe44b27b7cd58e710d"
+    }
+  }
+}
