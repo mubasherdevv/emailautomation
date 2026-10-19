@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { store } from "@/lib/store";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isRequestAuthorized } from "@/lib/auth";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authorized = await isRequestAuthorized(request);
+  if (!authorized) {
+    return NextResponse.json({ error: "Unauthorized access: admin privileges required" }, { status: 401 });
+  }
+
   const { id } = await params;
 
   try {

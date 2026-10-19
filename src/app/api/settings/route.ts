@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { isRequestAuthorized } from "@/lib/auth";
 
 // Helper to mask sensitive keys
 function maskKey(key?: string | null): string {
@@ -8,7 +9,12 @@ function maskKey(key?: string | null): string {
   return key.slice(0, 4) + "••••••••••••" + key.slice(-4);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const authorized = await isRequestAuthorized(request);
+  if (!authorized) {
+    return NextResponse.json({ error: "Unauthorized access: admin privileges required" }, { status: 401 });
+  }
+
   try {
     const envPath = path.join(process.cwd(), ".env.local");
     let envContent = "";
@@ -76,6 +82,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const authorized = await isRequestAuthorized(request);
+  if (!authorized) {
+    return NextResponse.json({ error: "Unauthorized access: admin privileges required to modify settings" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const envPath = path.join(process.cwd(), ".env.local");

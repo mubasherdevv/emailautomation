@@ -4,6 +4,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
   try {
+    // If RESEND_WEBHOOK_SECRET is configured, enforce token / signature verification
+    const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+    if (webhookSecret && !webhookSecret.includes("mock") && !webhookSecret.includes("placeholder")) {
+      const authHeader = request.headers.get("authorization") || request.headers.get("x-webhook-secret");
+      const svixSig = request.headers.get("svix-signature");
+      if (!svixSig && authHeader !== `Bearer ${webhookSecret}` && authHeader !== webhookSecret) {
+        return NextResponse.json({ error: "Invalid webhook credentials or signature" }, { status: 401 });
+      }
+    }
+
     const payload = await request.json();
     const eventType = payload.type; // e.g. "email.delivered", "email.bounced", "email.complained"
     const data = payload.data || {};

@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { Client } from "pg";
 import { createClient } from "@supabase/supabase-js";
+import { isRequestAuthorized } from "@/lib/auth";
 
 function extractProjectRef(url: string): string {
   try {
@@ -14,6 +15,11 @@ function extractProjectRef(url: string): string {
 }
 
 export async function POST(request: Request) {
+  const authorized = await isRequestAuthorized(request);
+  if (!authorized) {
+    return NextResponse.json({ error: "Unauthorized access: admin privileges required" }, { status: 401 });
+  }
+
   try {
     const body = await request.json().catch(() => ({}));
     let url = body.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL || "";

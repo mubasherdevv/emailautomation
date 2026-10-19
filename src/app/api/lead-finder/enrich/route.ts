@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isSafeExternalUrl } from "@/lib/auth";
 
 // Scrapes a single website to extract emails, phone numbers, and social links
 async function scrapeSiteContacts(url: string): Promise<{
@@ -24,7 +25,8 @@ async function scrapeSiteContacts(url: string): Promise<{
     socials: {},
   };
 
-  if (!url || !url.startsWith("http")) return result;
+  // SSRF Protection: Ensure url is safe, public, and not pointing to internal network
+  if (!url || !isSafeExternalUrl(url)) return result;
 
   const pagesToTry = [url, `${url.replace(/\/+$/, "")}/contact`, `${url.replace(/\/+$/, "")}/about`];
 
